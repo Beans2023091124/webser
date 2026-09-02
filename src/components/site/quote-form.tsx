@@ -32,11 +32,23 @@ export function QuoteForm({
   services,
   ctaText,
   theme,
+  serviceLabel = "What do you need?",
+  messageLabel = "Tell us about the job",
+  note = "We'll never share your information.",
+  showService = true,
+  showMessage = true,
+  requireEmail = false,
 }: {
   previewId: string;
   services: string[];
   ctaText: string;
   theme: Theme;
+  serviceLabel?: string;
+  messageLabel?: string;
+  note?: string;
+  showService?: boolean;
+  showMessage?: boolean;
+  requireEmail?: boolean;
 }) {
   const [state, formAction] = useFormState<LeadResult | null, FormData>(submitLead, null);
   const phone = usePhoneField();
@@ -119,12 +131,13 @@ export function QuoteForm({
         </div>
         <div>
           <label htmlFor="lead-email" className={labelBase}>
-            Email
+            Email{requireEmail ? "" : " (optional)"}
           </label>
           <input
             id="lead-email"
             name="email"
             type="email"
+            required={requireEmail}
             placeholder="you@example.com"
             className={fieldBase}
             style={fieldStyle}
@@ -132,10 +145,10 @@ export function QuoteForm({
         </div>
       </div>
 
-      {services.length > 0 && (
+      {showService && services.length > 0 && (
         <div>
           <label htmlFor="lead-service" className={labelBase}>
-            What do you need?
+            {serviceLabel}
           </label>
           <select
             id="lead-service"
@@ -156,19 +169,21 @@ export function QuoteForm({
         </div>
       )}
 
-      <div>
-        <label htmlFor="lead-message" className={labelBase}>
-          Tell us about the job
-        </label>
-        <textarea
-          id="lead-message"
-          name="message"
-          rows={4}
-          placeholder="A short description helps us give you an accurate price."
-          className={fieldBase}
-          style={fieldStyle}
-        />
-      </div>
+      {showMessage && (
+        <div>
+          <label htmlFor="lead-message" className={labelBase}>
+            {messageLabel}
+          </label>
+          <textarea
+            id="lead-message"
+            name="message"
+            rows={4}
+            placeholder="A short description helps us give you an accurate price."
+            className={fieldBase}
+            style={fieldStyle}
+          />
+        </div>
+      )}
 
       {state?.error && (
         <p className="rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-500 ring-1 ring-red-500/30">{state.error}</p>
@@ -176,9 +191,11 @@ export function QuoteForm({
 
       <SubmitButton label={ctaText} primary={theme.primary} />
 
-      <p className={`text-center text-xs ${theme.onLight ? "text-slate-500" : "text-white/50"}`}>
-        We'll never share your information.
-      </p>
+      {note && (
+        <p className={`text-center text-xs ${theme.onLight ? "text-slate-500" : "text-white/50"}`}>
+          {note}
+        </p>
+      )}
     </form>
   );
 }

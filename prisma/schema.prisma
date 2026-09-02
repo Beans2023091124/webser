@@ -162,6 +162,19 @@ model Preview {
   bookingUrl       String?        // online scheduler, if they have one
   contactNote      String?        // e.g. "Texts answered fastest"
 
+  // Quote form wording and shape. Null falls back to the layout's default
+  // copy, so a barber asks to "Book a chair" and a plumber asks for an
+  // estimate without anyone having to type it.
+  formHeading      String?
+  formBlurb        String?
+  formButtonText   String?
+  formNote         String?        // reassurance under the button
+  formServiceLabel String?
+  formMessageLabel String?
+  formShowService  Boolean        @default(true)
+  formShowMessage  Boolean        @default(true)
+  formRequireEmail Boolean        @default(false)
+
   faviconUrl       String?        // uploaded favicon, else generated from initials
   galleryHeading   String?        // overrides the per-variant default
 

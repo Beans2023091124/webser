@@ -12,7 +12,7 @@
  * process.env.RESEND_API_KEY visible here. Keep it first.
  */
 import { prisma } from "../src/lib/prisma";
-import { sendEmail, emailConfigured } from "../src/lib/email";
+import { sendEmail, emailConfigured, layout, button } from "../src/lib/email";
 
 async function main() {
   const to = process.argv[2];
@@ -32,11 +32,16 @@ async function main() {
     to,
     subject: "Webser test email",
     template: "test",
-    html: `<!doctype html><html><body style="font-family:system-ui,sans-serif;padding:24px">
-      <p style="font-size:18px;font-weight:700;color:#1463FF;margin:0 0 16px">Webser</p>
-      <p style="margin:0 0 12px">If you're reading this, Resend is set up correctly.</p>
-      <p style="margin:0;color:#64748b;font-size:14px">Sent from ${process.env.EMAIL_FROM}</p>
-    </body></html>`,
+    // Uses the real shell, so this also shows exactly how clients see it.
+    html: layout(`
+      <p style="margin:0 0 16px;font-size:20px;font-weight:800;color:#ffffff;line-height:1.3;letter-spacing:-0.01em;">
+        Resend is set up correctly.
+      </p>
+      <p style="margin:0 0 26px;font-size:16px;line-height:1.6;color:#cbd5e1;">
+        This is the same template your clients get, sent from ${process.env.EMAIL_FROM}.
+      </p>
+      ${button(process.env.NEXT_PUBLIC_APP_URL || "https://webser.org", "Open Webser")}
+    `),
   });
 
   console.log(res.ok ? "Sent." : `Failed: ${res.error}`);

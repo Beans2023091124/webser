@@ -40,6 +40,12 @@ export const previewSchema = z.object({
   aboutText: z.string().trim().max(3000).optional().or(z.literal("")),
   bookingUrl: z.string().trim().max(500).optional().or(z.literal("")),
   contactNote: z.string().trim().max(160).optional().or(z.literal("")),
+  formHeading: z.string().trim().max(80).optional().or(z.literal("")),
+  formBlurb: z.string().trim().max(200).optional().or(z.literal("")),
+  formButtonText: z.string().trim().max(40).optional().or(z.literal("")),
+  formNote: z.string().trim().max(120).optional().or(z.literal("")),
+  formServiceLabel: z.string().trim().max(60).optional().or(z.literal("")),
+  formMessageLabel: z.string().trim().max(60).optional().or(z.literal("")),
 
   yearsInBusiness: optionalInt,
   licenseNumber: z.string().trim().max(60).optional().or(z.literal("")),

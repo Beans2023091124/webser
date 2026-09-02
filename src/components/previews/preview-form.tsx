@@ -634,6 +634,55 @@ export function PreviewForm({
           </p>
         </div>
 
+        <div className="mt-6 border-t border-slate-800 pt-5">
+          <h4 className="mb-1 text-sm font-semibold text-slate-100">Enquiry form</h4>
+          <p className="mb-3 text-xs text-slate-500">
+            Leave anything blank to use the wording that suits this layout &mdash; a barber shop
+            asks you to book a chair, a plumber asks for an estimate.
+          </p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="formHeading">Heading</Label>
+              <Input id="formHeading" name="formHeading" defaultValue={preview.formHeading ?? ""} placeholder="Book a chair" />
+            </div>
+            <div>
+              <Label htmlFor="formButtonText">Button Text</Label>
+              <Input id="formButtonText" name="formButtonText" defaultValue={preview.formButtonText ?? ""} placeholder={preview.ctaText} />
+            </div>
+            <div className="sm:col-span-2">
+              <Label htmlFor="formBlurb">Sub-heading</Label>
+              <Input id="formBlurb" name="formBlurb" defaultValue={preview.formBlurb ?? ""} placeholder="Tell us what you're after and we'll get you scheduled." />
+            </div>
+            <div>
+              <Label htmlFor="formServiceLabel">Service Question</Label>
+              <Input id="formServiceLabel" name="formServiceLabel" defaultValue={preview.formServiceLabel ?? ""} placeholder="What do you need?" />
+            </div>
+            <div>
+              <Label htmlFor="formMessageLabel">Message Question</Label>
+              <Input id="formMessageLabel" name="formMessageLabel" defaultValue={preview.formMessageLabel ?? ""} placeholder="Tell us about the job" />
+            </div>
+            <div className="sm:col-span-2">
+              <Label htmlFor="formNote">Note Under the Button</Label>
+              <Input id="formNote" name="formNote" defaultValue={preview.formNote ?? ""} placeholder="We'll never share your information." />
+            </div>
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2.5 rounded-md border border-slate-800 bg-slate-950/40 p-3">
+            <label className="flex items-center gap-2 text-sm text-slate-300">
+              <input type="checkbox" name="formShowService" defaultChecked={preview.formShowService} className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-brand-600" />
+              Service dropdown
+            </label>
+            <label className="flex items-center gap-2 text-sm text-slate-300">
+              <input type="checkbox" name="formShowMessage" defaultChecked={preview.formShowMessage} className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-brand-600" />
+              Message box
+            </label>
+            <label className="flex items-center gap-2 text-sm text-slate-300">
+              <input type="checkbox" name="formRequireEmail" defaultChecked={preview.formRequireEmail} className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-brand-600" />
+              Require an email address
+            </label>
+          </div>
+        </div>
+
         <div className="mt-4">
           <div className="mb-1.5 flex items-end justify-between">
             <Label className="mb-0">Hours</Label>

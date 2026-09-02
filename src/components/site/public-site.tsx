@@ -119,7 +119,20 @@ export async function PublicSite({ preview }: { preview: Preview }) {
     { href: "#quote", label: "Contact" },
   ].filter(Boolean) as NavLink[];
 
-  const formCopy = FORM_COPY[variant] ?? FORM_COPY.trade;
+  const formDefaults = FORM_COPY[variant] ?? FORM_COPY.trade;
+  const formCopy = {
+    heading: preview.formHeading || formDefaults.heading,
+    blurb: preview.formBlurb || formDefaults.blurb,
+  };
+  // Passed to both places the form appears, so they can't drift apart.
+  const formProps = {
+    serviceLabel: preview.formServiceLabel || undefined,
+    messageLabel: preview.formMessageLabel || undefined,
+    note: preview.formNote ?? undefined,
+    showService: preview.formShowService,
+    showMessage: preview.formShowMessage,
+    requireEmail: preview.formRequireEmail,
+  };
   const sectionCopy = SECTION_COPY[variant] ?? SECTION_COPY.trade;
 
   // Pick a column count that divides evenly so the last row is never a lonely
@@ -360,7 +373,8 @@ export async function PublicSite({ preview }: { preview: Preview }) {
         <QuoteForm
           previewId={preview.id}
           services={services.map((s) => s.name)}
-          ctaText={preview.ctaText}
+          ctaText={preview.formButtonText || preview.ctaText}
+                  {...formProps}
           theme={{ primary, onLight: true, field: S.card, border: S.borderStrong }}
         />
       </div>
@@ -758,7 +772,8 @@ export async function PublicSite({ preview }: { preview: Preview }) {
             <QuoteForm
               previewId={preview.id}
               services={services.map((s) => s.name)}
-              ctaText={preview.ctaText}
+              ctaText={preview.formButtonText || preview.ctaText}
+                  {...formProps}
               theme={{ primary, onLight: true, field: S.card, border: S.borderStrong }}
             />
           </div>

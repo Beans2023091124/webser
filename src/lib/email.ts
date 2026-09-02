@@ -20,21 +20,67 @@ function appUrl(): string {
   return (process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://localhost:3000").replace(/\/$/, "");
 }
 
-/** Shared shell so every message looks like it came from the same business. */
-function layout(body: string): string {
-  return `<!doctype html><html><body style="margin:0;padding:24px;background:#f6f7f9;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0f172a">
-  <div style="max-width:520px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;padding:32px">
-    <p style="margin:0 0 24px;font-size:18px;font-weight:800;letter-spacing:-0.01em;color:#1463FF">Webser</p>
-    ${body}
-  </div>
-  <p style="max-width:520px;margin:16px auto 0;font-size:12px;color:#94a3b8;text-align:center">
-    Reply to this email and it comes straight to us.
-  </p>
-</body></html>`;
+/**
+ * Shared shell, styled to match the landing page at webser.org.
+ *
+ * Built from tables rather than divs because Outlook ignores most modern
+ * layout CSS, and every colour is inline for the same reason. The dark card
+ * mirrors the site; the outer background stays light so the message still
+ * reads if a client strips backgrounds.
+ */
+export function layout(body: string): string {
+  const mark = `${appUrl()}/webser-mark.png`;
+  return `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark light" />
+  </head>
+  <body style="margin:0;padding:0;background:#e9eef5;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#e9eef5;padding:28px 16px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;background:#0b1220;border-radius:16px;overflow:hidden;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+            <tr>
+              <td style="padding:26px 32px 0 32px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td style="padding-right:10px;" valign="middle">
+                      <img src="${mark}" width="26" height="26" alt="" style="display:block;border:0;" />
+                    </td>
+                    <td valign="middle">
+                      <span style="font-size:18px;font-weight:800;letter-spacing:-0.02em;color:#ffffff;">Webser</span>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:22px 32px 32px 32px;color:#cbd5e1;font-size:16px;line-height:1.6;">
+                ${body}
+              </td>
+            </tr>
+          </table>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;">
+            <tr>
+              <td align="center" style="padding:14px 16px 0 16px;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;color:#64748b;">
+                Reply to this email and it comes straight to us.
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
 }
 
-function button(href: string, label: string): string {
-  return `<a href="${href}" style="display:inline-block;background:#1463FF;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:13px 26px;border-radius:9px">${label}</a>`;
+export function button(href: string, label: string): string {
+  // Wrapped in a table so Outlook renders the padding instead of collapsing it.
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="background:#1463FF;border-radius:9px;">
+    <a href="${href}" style="display:inline-block;padding:13px 26px;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">${label}</a>
+  </td></tr></table>`;
 }
 
 type SendArgs = {
@@ -124,15 +170,15 @@ export async function notifyNewLead(leadId: string): Promise<void> {
     .filter(([, v]) => v)
     .map(
       ([k, v]) =>
-        `<tr><td style="padding:6px 16px 6px 0;color:#64748b;font-size:14px;white-space:nowrap">${k}</td><td style="padding:6px 0;font-size:15px;font-weight:600">${v}</td></tr>`
+        `<tr><td style="padding:7px 18px 7px 0;color:#7c8aa0;font-size:14px;white-space:nowrap;">${k}</td><td style="padding:7px 0;font-size:15px;font-weight:600;color:#ffffff;">${v}</td></tr>`
     )
     .join("");
 
   // Give them something tappable on a phone — that's where they'll read this.
   const replyTo = lead.phone
-    ? `<a href="tel:${lead.phone.replace(/[^\d+]/g, "")}" style="display:inline-block;background:#1463FF;color:#fff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 24px;border-radius:9px">Call ${lead.name}</a>`
+    ? button(`tel:${lead.phone.replace(/[^\d+]/g, "")}`, `Call ${lead.name}`)
     : lead.email
-    ? `<a href="mailto:${lead.email}" style="display:inline-block;background:#1463FF;color:#fff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 24px;border-radius:9px">Email ${lead.name}</a>`
+    ? button(`mailto:${lead.email}`, `Email ${lead.name}`)
     : "";
 
   await sendEmail({
@@ -140,13 +186,13 @@ export async function notifyNewLead(leadId: string): Promise<void> {
     template: "new-lead",
     subject: `New enquiry from ${lead.name}${lead.service ? ` — ${lead.service}` : ""}`,
     html: layout(`
-      <p style="margin:0 0 18px;font-size:16px;line-height:1.6">
+      <p style="margin:0 0 20px;font-size:19px;font-weight:700;color:#ffffff;line-height:1.35;">
         Someone filled in the form on your website.
       </p>
-      <table style="border-collapse:collapse;margin:0 0 18px">${details}</table>
+      <table role="presentation" style="border-collapse:collapse;margin:0 0 20px;">${details}</table>
       ${
         lead.message
-          ? `<p style="margin:0 0 22px;padding:14px 16px;background:#f1f5f9;border-radius:9px;font-size:15px;line-height:1.6;white-space:pre-wrap">${lead.message}</p>`
+          ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px;"><tr><td style="padding:14px 16px;background:#111c30;border-left:3px solid #1463FF;border-radius:6px;font-size:15px;line-height:1.6;color:#cbd5e1;white-space:pre-wrap;">${lead.message}</td></tr></table>`
           : ""
       }
       ${replyTo}
@@ -189,13 +235,15 @@ export async function notifyProjectStatus(
       template: "ready-for-review",
       subject: `Your website is ready to look at — ${project.businessName}`,
       html: layout(`
-        <p style="margin:0 0 16px;font-size:16px">${hi}</p>
-        <p style="margin:0 0 16px;font-size:16px;line-height:1.6">
-          Your website is built and ready for you to look through. Have a click around and tell us
-          if anything needs changing — wrong photo, wrong number, a service you don't offer any
-          more. Just say it in plain English.
+        <p style="margin:0 0 14px;font-size:16px;color:#94a3b8;">${hi}</p>
+        <p style="margin:0 0 16px;font-size:20px;font-weight:800;color:#ffffff;line-height:1.3;letter-spacing:-0.01em;">
+          Your website is ready to look at.
         </p>
-        <p style="margin:0 0 26px;font-size:16px;line-height:1.6">
+        <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#cbd5e1;">
+          Have a click around and tell us if anything needs changing — wrong photo, wrong number,
+          a service you don't offer any more. Just say it in plain English.
+        </p>
+        <p style="margin:0 0 26px;font-size:16px;line-height:1.6;color:#cbd5e1;">
           Nothing goes live until you approve it.
         </p>
         ${button(portal, "See your website")}
@@ -211,12 +259,15 @@ export async function notifyProjectStatus(
     template: "site-live",
     subject: `${project.businessName} is live`,
     html: layout(`
-      <p style="margin:0 0 16px;font-size:16px">${hi}</p>
-      <p style="margin:0 0 16px;font-size:16px;line-height:1.6">
-        Your website is live. Anyone can find it now at
-        <a href="${live}" style="color:#1463FF">${live.replace(/^https?:\/\//, "")}</a>.
+      <p style="margin:0 0 14px;font-size:16px;color:#94a3b8;">${hi}</p>
+      <p style="margin:0 0 16px;font-size:20px;font-weight:800;color:#ffffff;line-height:1.3;letter-spacing:-0.01em;">
+        Your website is live.
       </p>
-      <p style="margin:0 0 26px;font-size:16px;line-height:1.6">
+      <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#cbd5e1;">
+        Anyone can find it now at
+        <a href="${live}" style="color:#6ea8ff;text-decoration:underline;">${live.replace(/^https?:\/\//, "")}</a>.
+      </p>
+      <p style="margin:0 0 26px;font-size:16px;line-height:1.6;color:#cbd5e1;">
         Need something changed later — new hours, a new number, a photo? Send us a message and
         we'll take care of it.
       </p>
