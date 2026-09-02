@@ -71,6 +71,7 @@ export async function uploadPreviewImages(previewId: string, formData: FormData)
       urls.push(await storeUpload(`${keyPrefix(previewId)}${name}`, file));
     } catch (e) {
       // A storage problem is a message, not a crashed page.
+      console.error("[upload] preview upload failed", e);
       if (e instanceof StorageUnavailableError) return { ok: false, error: e.message };
       return {
         ok: false,

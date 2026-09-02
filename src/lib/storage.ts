@@ -41,6 +41,10 @@ export async function storeUpload(key: string, file: File): Promise<string> {
       // The key already carries a random component; a second suffix would
       // make the stored name unpredictable for the delete path.
       addRandomSuffix: false,
+      // Our keys already carry a timestamp and random bytes, so a clash means
+      // a retry of the same upload — overwriting is the harmless outcome, and
+      // the default would throw instead.
+      allowOverwrite: true,
       contentType: file.type || undefined,
     });
     return url;

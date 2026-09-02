@@ -136,7 +136,9 @@ export async function uploadClientFiles(token: string, formData: FormData): Prom
     try {
       url = await storeUpload(`projects/${project.id}/${stored}`, file);
     } catch (e) {
-      // The client shouldn't see our infrastructure problem as a broken page.
+      // The client shouldn't see our infrastructure problem as a broken page,
+      // but the cause has to reach the logs or it's undiagnosable.
+      console.error("[upload] portal upload failed", e);
       if (e instanceof StorageUnavailableError) {
         return { ok: false, error: "We can't accept files just now — we've been told about it." };
       }
