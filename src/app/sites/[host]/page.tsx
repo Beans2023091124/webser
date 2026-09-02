@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { normalizeHost } from "@/lib/host";
+import { normalizeHost, baseDomain, subdomainOf } from "@/lib/host";
 import { PublicSite, siteMetadata } from "@/components/site/public-site";
 
 /**
@@ -22,18 +22,25 @@ async function previewForHost(hostParam: string) {
   const host = normalizeHost(decodeURIComponent(hostParam));
   if (!host) return null;
 
+  // 1. A domain the client brought themselves.
   const domain = await prisma.domain.findFirst({
     where: { domainName: host },
     select: { project: { select: { status: true, preview: true } } },
   });
+  if (domain?.project) {
+    // Served as soon as the domain is on the project, before the DNS check has
+    // passed: the client needs to see it working at their address in order to
+    // believe the setup worked.
+    return domain.project.status === "CANCELLED" ? null : domain.project.preview;
+  }
 
-  const project = domain?.project;
-  if (!project || project.status === "CANCELLED") return null;
+  // 2. The address every site gets for free: <slug>.webser.org.
+  const base = baseDomain();
+  const slug = base ? subdomainOf(host, base) : null;
+  if (!slug) return null;
 
-  // Served as soon as the domain is on the project, before the DNS check has
-  // passed: the client needs to be able to see it working at their address in
-  // order to believe the setup worked.
-  return project.preview;
+  const preview = await prisma.preview.findUnique({ where: { slug } });
+  return preview;
 }
 
 export async function generateMetadata({ params }: { params: { host: string } }) {

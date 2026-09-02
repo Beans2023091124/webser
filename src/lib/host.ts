@@ -45,6 +45,51 @@ export function appHosts(): string[] {
   return [...hosts];
 }
 
+/** The app's own registrable domain, e.g. "webser.org". */
+export function baseDomain(): string | null {
+  for (const v of [
+    process.env.NEXT_PUBLIC_APP_URL,
+    process.env.NEXTAUTH_URL,
+    process.env.VERCEL_PROJECT_PRODUCTION_URL,
+  ]) {
+    const h = normalizeHost(v);
+    if (h) return h;
+  }
+  return null;
+}
+
+/**
+ * "larsen-plumbing.webser.org" with base "webser.org" -> "larsen-plumbing".
+ *
+ * Only a single label counts, so "a.b.webser.org" resolves to nothing rather
+ * than being treated as the site "a.b".
+ */
+export function subdomainOf(host: string, base: string): string | null {
+  const suffix = `.${base}`;
+  if (host === base || !host.endsWith(suffix)) return null;
+  const label = host.slice(0, -suffix.length);
+  if (!label || label.includes(".")) return null;
+  return label;
+}
+
+/**
+ * Where a published site lives: <slug>.webser.org.
+ *
+ * Falls back to the /p/<slug> path when no app URL is configured, so nothing
+ * ends up linking to a host that doesn't exist.
+ */
+export function publishedSiteUrl(slug: string): string {
+  const raw = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (!raw) return `/p/${slug}`;
+  try {
+    const u = new URL(raw);
+    const host = u.hostname.replace(/^www\./, "");
+    return `${u.protocol}//${slug}.${host}${u.port ? `:${u.port}` : ""}`;
+  } catch {
+    return `/p/${slug}`;
+  }
+}
+
 export function isAppHost(host: string | null): boolean {
   // No Host header at all: serve the platform rather than guess.
   if (!host) return true;

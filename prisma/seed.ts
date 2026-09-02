@@ -11,12 +11,17 @@ async function main() {
 
   const passwordHash = await bcrypt.hash(password, 10);
 
+  // `update` deliberately carries the hash: with an empty update, editing
+  // SEED_ADMIN_PASSWORD in .env changed nothing and re-running the seed
+  // silently kept the old password, which is the opposite of what anyone
+  // expects from a variable named that. Seeding is the way credentials are
+  // set, so it has to actually set them.
   const admin = await prisma.user.upsert({
     where: { email },
-    update: {},
+    update: { name, passwordHash },
     create: { email, name, passwordHash, role: "ADMIN" },
   });
-  console.log(`Admin user ready: ${admin.email}`);
+  console.log(`Admin user ready: ${admin.email} (password set from SEED_ADMIN_PASSWORD)`);
 
   // --- Pricing ---
   // Single flat offer: $100 to build the site, $25/mo for edits & maintenance.

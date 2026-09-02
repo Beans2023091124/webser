@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { devPaymentsEnabled, settleBuildPayment, activateMaintenance } from "@/lib/payments";
+import { publishedSiteUrl } from "@/lib/host";
 
 export type DevResult = { ok: boolean; message?: string; error?: string };
 
@@ -93,7 +94,7 @@ export async function devForceDomainLive(token: string): Promise<DevResult> {
       liveUrl: domainName
         ? `https://${domainName}`
         : project.preview
-        ? `/p/${project.preview.slug}`
+        ? publishedSiteUrl(project.preview.slug)
         : null,
     },
   });

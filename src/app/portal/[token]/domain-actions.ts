@@ -9,7 +9,7 @@ import {
   requiredRecords,
   checkDomainPointsToUs,
 } from "@/lib/domain";
-import { appUrl } from "@/lib/stripe";
+import { publishedSiteUrl } from "@/lib/host";
 
 /**
  * The last stretch of the client's journey: picking the address people will
@@ -111,7 +111,7 @@ export async function useFreeAddress(token: string): Promise<DomainResult> {
     where: { id: project.id },
     data: {
       status: ProjectStatus.LIVE,
-      liveUrl: `${appUrl()}/p/${project.preview.slug}`,
+      liveUrl: publishedSiteUrl(project.preview.slug),
     },
   });
 
