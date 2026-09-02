@@ -1,0 +1,478 @@
+// Webser — Database Schema
+// Run `npm run db:migrate` after setting DATABASE_URL to apply this.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Auth / Users
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  ADMIN
+  STAFF
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  passwordHash  String
+  role          UserRole  @default(ADMIN)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  activities    Activity[]
+  emailLogs     EmailLog[]
+}
+
+// ---------------------------------------------------------------------------
+// Prospect / CRM
+// ---------------------------------------------------------------------------
+
+enum ProspectStatus {
+  NEW
+  RESEARCHING
+  CONTACTED
+  INTERESTED
+  PREVIEW_CREATED
+  PREVIEW_SENT
+  NEGOTIATING
+  WON
+  LOST
+  FOLLOW_UP_LATER
+}
+
+model Prospect {
+  id                 String          @id @default(cuid())
+  businessName       String
+  category           String?
+  contactName        String?
+  phone              String?
+  email              String?
+  address            String?
+  city               String?
+  state              String?
+  zip                String?
+  currentWebsite     String?
+  gmbUrl             String?
+  socialLinks        Json?           // { facebook, instagram, yelp, ... }
+  notes              String?         @db.Text
+  status             ProspectStatus  @default(NEW)
+  estimatedPrice     Decimal?        @db.Decimal(10, 2)
+  dateContacted      DateTime?
+  followUpDate       DateTime?
+  source             String?         // e.g. "Google Maps research", "Referral", "Drive-by"
+
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  previews           Preview[]
+  activities         Activity[]
+  emailLogs          EmailLog[]
+  project            Project?
+
+  @@index([status])
+  @@index([businessName])
+}
+
+enum ActivityType {
+  CALL
+  EMAIL
+  MEETING
+  NOTE
+  STATUS_CHANGE
+  SYSTEM
+}
+
+model Activity {
+  id           String        @id @default(cuid())
+  prospectId   String
+  prospect     Prospect      @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  type         ActivityType
+  description  String        @db.Text
+  outcome      String?
+  createdById  String?
+  createdBy    User?         @relation(fields: [createdById], references: [id])
+  createdAt    DateTime      @default(now())
+
+  @@index([prospectId])
+}
+
+// ---------------------------------------------------------------------------
+// Templates & Previews
+// ---------------------------------------------------------------------------
+
+model Template {
+  id            String     @id @default(cuid())
+  name          String     // "Auto Repair Template"
+  industry      String     // "auto-repair"
+  slug          String     @unique
+  description   String?
+  thumbnailUrl  String?
+  sections      Json       // structured default content/config for this industry
+  isActive      Boolean    @default(true)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  previews      Preview[]
+}
+
+enum PreviewStatus {
+  DRAFT
+  ACTIVE
+  DISABLED
+}
+
+model Preview {
+  id               String         @id @default(cuid())
+  slug             String         @unique // used at /p/[slug]
+  prospectId       String?
+  prospect         Prospect?      @relation(fields: [prospectId], references: [id], onDelete: SetNull)
+  templateId       String
+  template         Template       @relation(fields: [templateId], references: [id])
+
+  businessName     String
+  tagline          String?
+  logoUrl          String?
+  primaryColor     String         @default("#4f46e5")
+  secondaryColor   String         @default("#312e81")
+  fontFamily       String         @default("Inter")   // body font
+  headingFont      String         @default("Inter")
+  layoutVariant    String         @default("trade")   // trade | hospitality | care | style
+
+  // Optional colour overrides. Null means "derive from secondaryColor", which
+  // is what keeps a freshly generated site coherent without any tuning.
+  surfaceColor     String?        // light page background
+  headingColor     String?        // section headings
+  footerColor      String?        // footer / dark bands
+
+  faviconUrl       String?        // uploaded favicon, else generated from initials
+  galleryHeading   String?        // overrides the per-variant default
+
+  heroHeadline     String?
+  heroSubheadline  String?
+  heroImageUrl     String?
+  aboutText        String?        @db.Text
+  services         Json?          // [{ name, description, icon }]
+  gallery          Json?          // [imageUrl, ...]
+  testimonials     Json?          // [{ name, quote, rating }]
+
+  // Trust signals — what makes a local business site feel real
+  yearsInBusiness  Int?
+  licenseNumber    String?
+  googleRating     Decimal?       @db.Decimal(2, 1)
+  reviewCount      Int?
+  serviceAreas     Json?          // ["Olathe", "Overland Park", ...]
+  whyChooseUs      Json?          // [{ title, description }]
+  faq              Json?          // [{ question, answer }]
+  trustBadges      Json?          // ["Licensed & Insured", "Free Estimates", ...] — industry-specific wording
+  emergencyService Boolean        @default(false)
+  freeEstimates    Boolean        @default(true)
+  showStats        Boolean        @default(true)   // the "by the numbers" band
+
+  phone            String?
+  email            String?
+  address          String?
+  hours            Json?          // { mon: "8am-5pm", ... }
+  mapEmbedUrl      String?
+  ctaText          String         @default("Get a Free Quote")
+
+  status           PreviewStatus  @default(DRAFT)
+  viewCount        Int            @default(0)
+
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  project          Project?
+  leads            PreviewLead[]
+}
+
+// A real quote request submitted from a live preview site.
+// Doubles as the strongest possible sales pitch: "your preview already got you a lead."
+model PreviewLead {
+  id         String    @id @default(cuid())
+  previewId  String
+  preview    Preview   @relation(fields: [previewId], references: [id], onDelete: Cascade)
+
+  name       String
+  phone      String?
+  email      String?
+  service    String?
+  message    String?   @db.Text
+
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([previewId])
+}
+
+// ---------------------------------------------------------------------------
+// Pricing Packages
+// ---------------------------------------------------------------------------
+
+model Package {
+  id           String    @id @default(cuid())
+  name         String    // "Website"
+  description  String?
+  price        Decimal   @db.Decimal(10, 2)   // one-time build fee
+  monthlyPrice Decimal?  @db.Decimal(10, 2)   // recurring edits & maintenance
+  features     Json      // ["Mobile responsive", "Basic SEO", ...]
+  isActive     Boolean   @default(true)
+  sortOrder    Int       @default(0)
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  projects     Project[]
+}
+
+// ---------------------------------------------------------------------------
+// Projects (post-sale client record)
+// ---------------------------------------------------------------------------
+
+enum ProjectStatus {
+  PAYMENT_PENDING
+  INFORMATION_NEEDED
+  IN_DEVELOPMENT
+  REVISION_REQUESTED
+  FINAL_REVIEW
+  APPROVED
+  DEPLOYING
+  LIVE
+  MAINTENANCE
+  CANCELLED
+}
+
+model Project {
+  id             String         @id @default(cuid())
+  portalToken    String         @unique // unguessable token for /portal/[token]
+
+  prospectId     String?        @unique
+  prospect       Prospect?      @relation(fields: [prospectId], references: [id])
+  previewId      String?        @unique
+  preview        Preview?       @relation(fields: [previewId], references: [id])
+  packageId      String?
+  package        Package?       @relation(fields: [packageId], references: [id])
+
+  businessName   String
+  contactName    String?
+  contactEmail   String?
+  contactPhone   String?
+
+  price          Decimal        @db.Decimal(10, 2)   // one-time build fee
+  monthlyPrice   Decimal?       @db.Decimal(10, 2)   // agreed maintenance rate
+  depositAmount  Decimal?       @db.Decimal(10, 2)
+  status         ProjectStatus  @default(PAYMENT_PENDING)
+
+  // Stripe holds the card details; we only keep the identifiers.
+  stripeCustomerId String?
+
+  approvedAt     DateTime?      // client signed off on the final review
+  liveUrl        String?        // where the finished site is published
+  adminNotes     String?        @db.Text
+
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  invoices       Invoice[]
+  revisions      Revision[]
+  files          FileUpload[]
+  domain         Domain?
+  maintenance    MaintenancePlan?
+  emailLogs      EmailLog[]
+
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Invoices / Payments (Stripe-backed, no card data stored here)
+// ---------------------------------------------------------------------------
+
+enum InvoiceType {
+  DEPOSIT
+  FULL
+  BALANCE
+  MAINTENANCE
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  VOID
+}
+
+model Invoice {
+  id                    String         @id @default(cuid())
+  projectId             String
+  project               Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  stripeInvoiceId       String?        @unique
+  stripePaymentIntentId String?
+  stripeCheckoutUrl     String?
+
+  amount                Decimal        @db.Decimal(10, 2)
+  type                  InvoiceType    @default(FULL)
+  status                InvoiceStatus  @default(DRAFT)
+
+  dueDate               DateTime?
+  paidAt                DateTime?
+  createdAt             DateTime       @default(now())
+
+  @@index([projectId])
+}
+
+// ---------------------------------------------------------------------------
+// Revisions (client change requests)
+// ---------------------------------------------------------------------------
+
+enum RevisionRequester {
+  CLIENT
+  ADMIN
+}
+
+enum RevisionStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+}
+
+model Revision {
+  id            String             @id @default(cuid())
+  projectId     String
+  project       Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  requestedBy   RevisionRequester  @default(CLIENT)
+  description   String             @db.Text
+  status        RevisionStatus     @default(OPEN)
+  createdAt     DateTime           @default(now())
+  resolvedAt    DateTime?
+
+  @@index([projectId])
+}
+
+// ---------------------------------------------------------------------------
+// File Uploads (logos, images) — stored in R2/Supabase Storage, URL only here
+// ---------------------------------------------------------------------------
+
+enum FileType {
+  LOGO
+  IMAGE
+  DOCUMENT
+}
+
+enum UploadedBy {
+  CLIENT
+  ADMIN
+}
+
+model FileUpload {
+  id          String      @id @default(cuid())
+  projectId   String
+  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  type        FileType
+  url         String
+  filename    String
+  uploadedBy  UploadedBy  @default(CLIENT)
+  createdAt   DateTime    @default(now())
+
+  @@index([projectId])
+}
+
+// ---------------------------------------------------------------------------
+// Domain
+// ---------------------------------------------------------------------------
+
+enum DnsStatus {
+  NOT_STARTED
+  INSTRUCTIONS_SENT
+  PENDING
+  VERIFIED
+  ERROR
+}
+
+enum SslStatus {
+  PENDING
+  ACTIVE
+  ERROR
+}
+
+enum DeploymentStatus {
+  NOT_STARTED
+  BUILDING
+  DEPLOYED
+  DOMAIN_PENDING
+  LIVE
+  ERROR
+}
+
+model Domain {
+  id                 String            @id @default(cuid())
+  projectId          String            @unique
+  project            Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  domainName         String?
+  registrar          String?
+  dnsStatus          DnsStatus         @default(NOT_STARTED)
+  requiredDnsRecords Json?             // [{ type, name, value }] shown to the client
+  hostingProvider    String            @default("Cloudflare Pages")
+  sslStatus          SslStatus         @default(PENDING)
+  deploymentStatus   DeploymentStatus  @default(NOT_STARTED)
+  deploymentUrl      String?           // the *.pages.dev URL before custom domain attaches
+
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Maintenance (optional recurring plan)
+// ---------------------------------------------------------------------------
+
+enum MaintenanceStatus {
+  ACTIVE
+  PAUSED
+  CANCELLED
+}
+
+model MaintenancePlan {
+  id                    String             @id @default(cuid())
+  projectId             String             @unique
+  project               Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  monthlyPrice          Decimal            @db.Decimal(10, 2)
+  status                MaintenanceStatus  @default(ACTIVE)
+  stripeSubscriptionId  String?            @unique
+  nextBillingDate       DateTime?
+  createdAt             DateTime           @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Email Log
+// ---------------------------------------------------------------------------
+
+enum EmailStatus {
+  QUEUED
+  SENT
+  FAILED
+}
+
+model EmailLog {
+  id                 String       @id @default(cuid())
+  to                 String
+  subject            String
+  template           String       // e.g. "preview-ready", "invoice-sent"
+  relatedProspectId  String?
+  relatedProspect    Prospect?    @relation(fields: [relatedProspectId], references: [id])
+  relatedProjectId   String?
+  relatedProject     Project?     @relation(fields: [relatedProjectId], references: [id])
+  status             EmailStatus  @default(QUEUED)
+  sentById           String?
+  sentBy             User?        @relation(fields: [sentById], references: [id])
+  sentAt             DateTime     @default(now())
+}

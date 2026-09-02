@@ -1,0 +1,289 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 222 47% 4%;
+  --foreground: 210 20% 96%;
+  --border: 217 19% 20%;
+  --muted: 217 19% 14%;
+  --muted-foreground: 217 10% 62%;
+}
+
+html {
+  color-scheme: dark;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  color: hsl(var(--foreground));
+  background: #000000;
+}
+
+::selection {
+  background: rgba(20, 99, 255, 0.35);
+}
+
+/* ---------------------------------------------------------------------------
+   Generated-site motion
+   Elements tagged .reveal start slightly down and transparent; an observer
+   adds .is-visible when they scroll into view. Anything without JS still
+   shows, because .no-js-fallback below is applied on load failure, and the
+   reduced-motion block disables the whole system.
+   --------------------------------------------------------------------------- */
+
+.reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition-property: opacity, transform;
+  transition-duration: 620ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+
+.reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* Mobile navigation sheet */
+@keyframes sheetIn {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   FAQ accordion
+   The body is wrapped in a 0fr → 1fr grid row so it can animate to its own
+   height without hard-coding one. Opening animates from CSS alone; the
+   closing animation needs the small script in faq-accordion.tsx.
+   --------------------------------------------------------------------------- */
+
+/* Heights are animated in JS (see faq-accordion.tsx); this only needs to
+   clip the content while that runs. */
+details.faq .faq-body {
+  overflow: hidden;
+}
+
+details.faq summary::-webkit-details-marker {
+  display: none;
+}
+
+details.faq summary {
+  list-style: none;
+}
+
+details.faq .faq-chevron {
+  transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+details.faq[open]:not([data-closing="true"]) .faq-chevron {
+  transform: rotate(180deg);
+}
+
+/* Hover-lift and image-zoom transitions are declared inline via Tailwind,
+   but they must also stop under reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  html {
+    scroll-behavior: auto !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Print
+   Business owners genuinely print these to show a partner or keep on file, so
+   the printed page should read as a clean one-page summary: no sticky chrome,
+   no interactive controls, every FAQ answer expanded, and link targets spelled
+   out since a printed href is otherwise unusable.
+   --------------------------------------------------------------------------- */
+@media print {
+  @page {
+    margin: 14mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+  }
+
+  /* Chrome that only makes sense on screen */
+  .print-hide,
+  header,
+  nav,
+  form,
+  iframe,
+  button {
+    display: none !important;
+  }
+
+  /* Sections carry heavy vertical rhythm on screen; tighten it for paper */
+  section {
+    padding-top: 12px !important;
+    padding-bottom: 12px !important;
+    background: #fff !important;
+    break-inside: avoid;
+  }
+
+  /* Force readable ink regardless of the site's palette */
+  *,
+  *::before,
+  *::after {
+    color: #111 !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  /* Reveal animations must never leave printed content invisible */
+  .reveal {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  /* Every answer open on paper */
+  details.faq .faq-body {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  h1 {
+    font-size: 26pt !important;
+  }
+
+  h2 {
+    font-size: 15pt !important;
+    break-after: avoid;
+  }
+
+  h3 {
+    font-size: 11pt !important;
+    break-after: avoid;
+  }
+
+  p,
+  li,
+  dd,
+  dt {
+    font-size: 10pt !important;
+  }
+
+  img {
+    max-height: 55mm !important;
+    break-inside: avoid;
+  }
+
+  /* A printed link is useless without its destination */
+  a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 8pt;
+    color: #555 !important;
+    word-break: break-all;
+  }
+
+  a[href^="tel:"]::after,
+  a[href^="mailto:"]::after,
+  a[href^="#"]::after {
+    content: "";
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Form controls & scrollbars
+   Native selects and scrollbars are the two places a dark UI most obviously
+   falls back to the OS look, so both get styled explicitly.
+   --------------------------------------------------------------------------- */
+
+/* Selects: hide the platform arrow and draw our own chevron. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.6rem center;
+  background-size: 1rem;
+  padding-right: 2.25rem !important;
+}
+
+select:hover {
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23cbd5e1' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+/* The dropdown list itself is OS-drawn; this is the one hook we get. */
+select option {
+  background-color: #0f172a;
+  color: #e2e8f0;
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #334155 transparent;
+}
+
+/* WebKit / Blink */
+::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #334155;
+  border-radius: 999px;
+  /* Inset the thumb so it reads as a floating pill rather than a filled gutter */
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #475569;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Generated sites are light, so their scrollbars need the inverse treatment. */
+.site-light * {
+  scrollbar-color: rgba(15, 23, 42, 0.28) transparent;
+}
+
+.site-light ::-webkit-scrollbar-thumb {
+  background-color: rgba(15, 23, 42, 0.28);
+}
+
+.site-light ::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(15, 23, 42, 0.45);
+}
+
+.site-light select option {
+  background-color: #ffffff;
+  color: #0f172a;
+}
