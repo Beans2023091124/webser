@@ -7,7 +7,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { storeUpload, deleteUpload, isOwnUpload, StorageUnavailableError } from "@/lib/storage";
 
-const MAX_BYTES = 8 * 1024 * 1024; // 8MB
+// Matches Vercel's 4.5MB Server Action body cap, with headroom.
+const MAX_BYTES = 4 * 1024 * 1024; // 4MB
 
 const ALLOWED: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -63,7 +64,7 @@ export async function uploadPreviewImages(previewId: string, formData: FormData)
       return { ok: false, error: `"${file.name}" isn't a supported image (JPG, PNG, WebP, AVIF, or GIF).` };
     }
     if (file.size > MAX_BYTES) {
-      return { ok: false, error: `"${file.name}" is larger than 8MB.` };
+      return { ok: false, error: `"${file.name}" is larger than 4MB.` };
     }
 
     const name = `${Date.now().toString(36)}-${randomBytes(5).toString("hex")}.${ext}`;

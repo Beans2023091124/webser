@@ -448,7 +448,7 @@ export function FileUploadZone({ token }: { token: string }) {
         <p className="text-[15px] font-semibold text-slate-200">
           {isPending ? "Uploading…" : "Drop your logo and photos here"}
         </p>
-        <p className="text-sm text-slate-500">Or tap to browse. Images or PDF, up to 12MB each.</p>
+        <p className="text-sm text-slate-500">Or tap to browse. Images or PDF, up to 4MB each.</p>
         <input
           ref={inputRef}
           type="file"

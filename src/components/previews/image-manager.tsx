@@ -284,7 +284,7 @@ export function ImageManager({
         ) : (
           <DropZone
             label="Upload a hero photo"
-            hint="Wide shots work best. JPG, PNG, WebP up to 8MB."
+            hint="Wide shots work best. JPG, PNG, WebP up to 4MB."
             multiple={false}
             busy={busy === "hero"}
             onFiles={(f) => send("hero", f)}
@@ -323,7 +323,7 @@ export function ImageManager({
 
         <DropZone
           label="Drop customer photos here"
-          hint="Or click to browse. Up to 12 at a time, 8MB each."
+          hint="Or click to browse. Up to 12 at a time, 4MB each."
           multiple
           busy={busy === "gallery"}
           onFiles={(f) => send("gallery", f)}

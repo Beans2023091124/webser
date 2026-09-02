@@ -14,7 +14,9 @@ import { storeUpload, StorageUnavailableError } from "@/lib/storage";
  * form. A client can only ever affect their own project.
  */
 
-const MAX_BYTES = 12 * 1024 * 1024; // 12MB
+// Server Actions on Vercel cap the request body at 4.5MB; promising more
+// than that just moves the failure from a clear message to a dead end.
+const MAX_BYTES = 4 * 1024 * 1024; // 4MB
 const ALLOWED: Record<string, string> = {
   "image/jpeg": "jpg",
   "image/png": "png",
@@ -127,7 +129,7 @@ export async function uploadClientFiles(token: string, formData: FormData): Prom
       return { ok: false, error: `"${file.name}" isn't a supported file (images or PDF).` };
     }
     if (file.size > MAX_BYTES) {
-      return { ok: false, error: `"${file.name}" is larger than 12MB.` };
+      return { ok: false, error: `"${file.name}" is larger than 4MB. Photos straight off a phone are often over that — send it through a photo app at a smaller size, or email it to us.` };
     }
 
     // Random stored name; the client's filename is kept only as a label.
