@@ -14,6 +14,9 @@ import { DeleteProspectButton } from "@/components/prospects/delete-prospect-but
 import { GeneratePreviewButton } from "@/components/prospects/generate-preview-button";
 import { ConvertToProjectButton } from "@/components/prospects/convert-button";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { TextCustomer } from "@/components/admin/text-customer";
+import { prospectTemplates } from "@/lib/text-templates";
+import { appUrl } from "@/lib/stripe";
 import { mapCategoryToIndustry, INDUSTRY_DEFAULTS } from "@/lib/preview";
 import { updateProspect, deleteProspect, logActivity } from "../actions";
 import { createProjectFromProspect } from "../../projects/actions";
@@ -68,9 +71,19 @@ export default async function ProspectDetailPage({ params }: { params: { id: str
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
                 {prospect.phone && (
-                  <a href={`tel:${prospect.phone}`} className="flex items-center gap-2 text-slate-400 hover:text-brand-400">
-                    <Phone className="h-4 w-4 text-slate-400" /> {prospect.phone}
-                  </a>
+                  <>
+                    <a href={`tel:${prospect.phone}`} className="flex items-center gap-2 text-slate-400 hover:text-brand-400">
+                      <Phone className="h-4 w-4 text-slate-400" /> {prospect.phone}
+                    </a>
+                    <TextCustomer
+                      phone={prospect.phone}
+                      templates={prospectTemplates({
+                        contactName: prospect.contactName,
+                        businessName: prospect.businessName,
+                        previewUrl: prospect.previews[0] ? `${appUrl()}/p/${prospect.previews[0].slug}` : null,
+                      })}
+                    />
+                  </>
                 )}
                 {prospect.email && (
                   <a href={`mailto:${prospect.email}`} className="flex items-center gap-2 text-slate-400 hover:text-brand-400">

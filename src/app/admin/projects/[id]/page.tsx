@@ -27,6 +27,9 @@ import {
   ApplyWithAiButton,
 } from "@/components/projects/project-controls";
 import { deployHost } from "@/lib/domain";
+import { appUrl } from "@/lib/stripe";
+import { TextCustomer } from "@/components/admin/text-customer";
+import { clientTemplates } from "@/lib/text-templates";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 import {
   PROJECT_STATUS_LABELS,
@@ -250,6 +253,21 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
               </CardHeader>
               <CardContent>
                 <PortalLink projectId={project.id} token={project.portalToken} />
+
+                {project.contactPhone && (
+                  <div className="mt-3">
+                    <TextCustomer
+                      phone={project.contactPhone}
+                      templates={clientTemplates({
+                        contactName: project.contactName,
+                        businessName: project.businessName,
+                        portalUrl: `${appUrl()}/portal/${project.portalToken}`,
+                        liveUrl: project.liveUrl,
+                        status: project.status,
+                      })}
+                    />
+                  </div>
+                )}
                 <a
                   href={`/portal/${project.portalToken}`}
                   target="_blank"
