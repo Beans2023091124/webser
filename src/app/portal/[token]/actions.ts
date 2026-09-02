@@ -142,7 +142,7 @@ export async function uploadClientFiles(token: string, formData: FormData): Prom
       // but the cause has to reach the logs or it's undiagnosable.
       console.error("[upload] portal upload failed", e);
       if (e instanceof StorageUnavailableError) {
-        return { ok: false, error: "We can't accept files just now — we've been told about it." };
+        return { ok: false, error: "We can't accept files just now — we've been told about it. Please send them over by text instead." };
       }
       return { ok: false, error: "That upload didn't go through. Please try again." };
     }

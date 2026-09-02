@@ -1,6 +1,12 @@
 import { writeFile, mkdir, unlink } from "fs/promises";
 import path from "path";
-import { put, del } from "@vercel/blob";
+import {
+  put,
+  del,
+  BlobAccessError,
+  BlobStoreNotFoundError,
+  BlobStoreSuspendedError,
+} from "@vercel/blob";
 
 /**
  * Where uploaded files live.
@@ -36,18 +42,38 @@ export function storageMode(): "blob" | "local" {
 
 export async function storeUpload(key: string, file: File): Promise<string> {
   if (blobConfigured()) {
-    const { url } = await put(key, file, {
-      access: "public",
-      // The key already carries a random component; a second suffix would
-      // make the stored name unpredictable for the delete path.
-      addRandomSuffix: false,
-      // Our keys already carry a timestamp and random bytes, so a clash means
-      // a retry of the same upload — overwriting is the harmless outcome, and
-      // the default would throw instead.
-      allowOverwrite: true,
-      contentType: file.type || undefined,
-    });
-    return url;
+    try {
+      const { url } = await put(key, file, {
+        access: "public",
+        // The key already carries a random component; a second suffix would
+        // make the stored name unpredictable for the delete path.
+        addRandomSuffix: false,
+        // Our keys already carry a timestamp and random bytes, so a clash means
+        // a retry of the same upload — overwriting is the harmless outcome, and
+        // the default would throw instead.
+        allowOverwrite: true,
+        contentType: file.type || undefined,
+        // Pinned rather than left to the SDK's env lookup, so credentials come
+        // from one obvious place.
+        token: process.env.BLOB_READ_WRITE_TOKEN,
+      });
+      return url;
+    } catch (e) {
+      // A wrong or stale credential is a setup problem, not a bad upload, and
+      // it reads as "try again" unless we say otherwise. The SDK derives the
+      // store id from the token itself, so "store does not exist" means the
+      // token belongs to a store that has since been deleted or replaced.
+      if (
+        e instanceof BlobStoreNotFoundError ||
+        e instanceof BlobStoreSuspendedError ||
+        e instanceof BlobAccessError
+      ) {
+        throw new StorageUnavailableError(
+          `Blob storage rejected this upload: ${e.message} BLOB_READ_WRITE_TOKEN in this deployment points at a store that no longer exists. Reconnect the Blob store to the project in Vercel (Storage > your store > Projects > Connect), remove any hand-added BLOB_* variables, and redeploy.`
+        );
+      }
+      throw e;
+    }
   }
 
   // The local fallback only exists for development. On Vercel the filesystem
