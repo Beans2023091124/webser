@@ -2,8 +2,6 @@ import { notFound } from "next/navigation";
 import {
   Check,
   ExternalLink,
-  FileText,
-  ImageIcon,
   Sparkles,
   Clock,
   ShieldCheck,
@@ -20,6 +18,7 @@ import {
   pipelineIndex,
   revisionPrompt,
 } from "@/lib/project";
+import { ClientFiles } from "@/components/portal/client-files";
 import {
   PayButton,
   RevisionForm,
@@ -194,6 +193,20 @@ export default async function PortalPage({
             })}
           </ol>
         </Card>
+
+        {/* Green light to build — the one thing we need at this stage */}
+        {awaitingInfo && (
+          <Card className="border-brand-500/30 bg-gradient-to-b from-brand-500/[0.07] to-slate-900">
+            <h2 className="text-lg font-bold text-slate-50">Sent us everything?</h2>
+            <p className="mt-1.5 text-[15px] leading-relaxed text-slate-400">
+              Add your logo and photos below, then let us know and we&apos;ll start building.
+              Don&apos;t worry about getting it all perfect &mdash; you can send more at any point.
+            </p>
+            <div className="mt-5">
+              <ReadyToBuildButton token={params.token} />
+            </div>
+          </Card>
+        )}
 
         {/* Sign-off — the one thing we need from them at this stage */}
         {canReview && (
@@ -376,34 +389,17 @@ export default async function PortalPage({
               <FileUploadZone token={params.token} />
             </div>
 
-            {project.files.length > 0 && (
-              <ul className="mt-5 space-y-2">
-                {project.files.map((f) => (
-                  <li
-                    key={f.id}
-                    className="flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-2.5"
-                  >
-                    {f.type === "DOCUMENT" ? (
-                      <FileText className="h-4 w-4 flex-none text-slate-500" />
-                    ) : (
-                      <ImageIcon className="h-4 w-4 flex-none text-slate-500" />
-                    )}
-                    <span className="min-w-0 flex-1 truncate text-sm text-slate-300">{f.filename}</span>
-                    <span className="flex-none text-xs text-slate-600">{formatDate(f.createdAt)}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            {awaitingInfo && (
-              <div className="mt-7 border-t border-slate-800 pt-6">
-                <p className="mb-4 text-[15px] text-slate-400">
-                  Sent us everything? Let us know and we&apos;ll start building. Don&apos;t worry
-                  about getting it all perfect — you can send more at any point.
-                </p>
-                <ReadyToBuildButton token={params.token} />
-              </div>
-            )}
+            <ClientFiles
+              token={params.token}
+              files={project.files.map((f) => ({
+                id: f.id,
+                url: f.url,
+                filename: f.filename,
+                type: f.type,
+                uploadedBy: f.uploadedBy,
+                createdAt: f.createdAt.toISOString(),
+              }))}
+            />
           </Card>
         )}
 

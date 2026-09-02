@@ -18,14 +18,14 @@ export default async function PreviewsPage() {
         description={`${previews.length} website preview${previews.length === 1 ? "" : "s"} generated`}
       />
 
-      <main className="flex-1 overflow-y-auto p-6">
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6">
         {previews.length === 0 ? (
           <div className="rounded-lg border border-dashed border-slate-800 p-12 text-center text-slate-500">
             No previews yet. Generate one from a prospect's detail page.
           </div>
         ) : (
-          <div className="overflow-hidden rounded-lg border border-slate-800 bg-slate-900 shadow-sm">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto rounded-lg border border-slate-800 bg-slate-900 shadow-sm">
+            <table className="w-full min-w-[640px] text-sm">
               <thead className="border-b border-slate-800 bg-slate-900/60 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
                 <tr>
                   <th className="px-4 py-3">Business</th>

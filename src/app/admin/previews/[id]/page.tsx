@@ -40,7 +40,7 @@ export default async function PreviewDetailPage({ params }: { params: { id: stri
         }
       />
 
-      <main className="flex-1 overflow-y-auto p-6">
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6">
         <Link
           href="/admin/previews"
           className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-300"

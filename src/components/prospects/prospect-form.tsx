@@ -1,9 +1,12 @@
 "use client";
 
+import { Loader2 } from "lucide-react";
+
 import { useState, useTransition } from "react";
 import { Prospect } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { BUSINESS_CATEGORIES, PROSPECT_STATUSES, PROSPECT_STATUS_LABELS } from "@/lib/prospect";
 
 type Socials = { facebook?: string; instagram?: string };
@@ -68,7 +71,7 @@ export function ProspectForm({
 
         <div>
           <Label htmlFor="phone">Phone</Label>
-          <Input id="phone" name="phone" type="tel" defaultValue={prospect?.phone ?? ""} placeholder="(913) 555-0100" />
+          <PhoneInput id="phone" name="phone" defaultValue={prospect?.phone ?? ""} placeholder="(913) 555-0100" />
         </div>
 
         <div>
@@ -160,6 +163,7 @@ export function ProspectForm({
 
       <div className="flex items-center justify-end gap-3 border-t border-slate-800 pt-5">
         <Button type="submit" disabled={isPending}>
+          {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
           {isPending ? "Saving…" : prospect ? "Save Changes" : "Add Prospect"}
         </Button>
       </div>

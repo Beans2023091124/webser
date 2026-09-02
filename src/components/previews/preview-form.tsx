@@ -2,9 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { Preview } from "@prisma/client";
-import { Plus, Trash2, ExternalLink, Copy } from "lucide-react";
+import { Plus, Trash2, ExternalLink, Copy, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import {
   HEADING_FONT_OPTIONS,
   BODY_FONT_OPTIONS,
@@ -258,10 +259,6 @@ export function PreviewForm({
             <Label htmlFor="heroSubheadline">Subheadline</Label>
             <Textarea id="heroSubheadline" name="heroSubheadline" rows={2} defaultValue={preview.heroSubheadline ?? ""} />
           </div>
-          <div>
-            <Label htmlFor="heroImageUrl">Hero Background Image URL</Label>
-            <Input id="heroImageUrl" name="heroImageUrl" defaultValue={preview.heroImageUrl ?? ""} placeholder="https://… (a real job-site photo works best)" />
-          </div>
         </div>
       </section>
 
@@ -493,14 +490,11 @@ export function PreviewForm({
             Leave blank to use the template default (&ldquo;Recent work&rdquo;, &ldquo;Our office&rdquo;, and so on).
           </p>
         </div>
-        <Label htmlFor="galleryText">Image URLs (one per line)</Label>
-        <Textarea
-          id="galleryText"
-          name="galleryText"
-          rows={4}
-          defaultValue={((preview.gallery as string[] | null) ?? []).join("\n")}
-          placeholder={"https://example.com/job1.jpg\nhttps://example.com/job2.jpg"}
-        />
+        <p className="rounded-md border border-slate-800 bg-slate-950/40 px-3 py-2.5 text-xs leading-relaxed text-slate-500">
+          The photos themselves live under <span className="text-slate-300">Images</span> above.
+          Add or remove them there &mdash; they save the moment you drop them in, without waiting
+          for this form.
+        </p>
       </section>
 
       {/* Testimonials */}
@@ -569,7 +563,7 @@ export function PreviewForm({
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <Label htmlFor="phone">Phone</Label>
-            <Input id="phone" name="phone" defaultValue={preview.phone ?? ""} />
+            <PhoneInput id="phone" name="phone" defaultValue={preview.phone ?? ""} />
           </div>
           <div>
             <Label htmlFor="email">Email</Label>
@@ -655,6 +649,7 @@ export function PreviewForm({
 
       <div className="sticky bottom-0 -mx-5 flex items-center justify-end gap-3 border-t border-slate-800 bg-slate-900/95 px-5 py-4 backdrop-blur">
         <Button type="submit" disabled={isPending}>
+          {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
           {isPending ? "Saving…" : "Save Preview"}
         </Button>
       </div>

@@ -158,11 +158,17 @@ export async function updatePreview(previewId: string, formData: FormData) {
 
       heroHeadline: parsed.heroHeadline || null,
       heroSubheadline: parsed.heroSubheadline || null,
-      heroImageUrl: parsed.heroImageUrl || null,
       aboutText: parsed.aboutText || null,
 
+      // Images are owned by the image manager, which writes them the moment
+      // they're uploaded. This form is rendered once and its inputs are
+      // uncontrolled, so if it also carried hero/gallery values it would post
+      // whatever was on screen at page load and silently undo every upload
+      // made since. Only touch them if a field for them was actually sent.
+      ...("heroImageUrl" in raw ? { heroImageUrl: parsed.heroImageUrl || null } : {}),
+      ...("galleryText" in raw ? { gallery: parseGallery(raw.galleryText) } : {}),
+
       services: parseServices(raw.servicesJson),
-      gallery: parseGallery(raw.galleryText),
       testimonials: parseTestimonials(raw.testimonialsJson),
       whyChooseUs: parseWhyChooseUs(raw.whyChooseUsJson),
       faq: parseFaq(raw.faqJson),

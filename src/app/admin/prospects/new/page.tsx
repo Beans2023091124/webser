@@ -7,7 +7,7 @@ export default function NewProspectPage() {
   return (
     <>
       <Topbar title="New Prospect" description="Add a local business to your pipeline." />
-      <main className="flex-1 overflow-y-auto p-6">
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6">
         <Card className="mx-auto max-w-3xl">
           <CardContent>
             <ProspectForm action={createProspect} />

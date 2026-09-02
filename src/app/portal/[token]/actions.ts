@@ -4,7 +4,7 @@ import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
 import { ProjectStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { storeUpload, StorageUnavailableError } from "@/lib/storage";
+import { storeUpload, deleteUpload, StorageUnavailableError } from "@/lib/storage";
 
 /**
  * Portal actions.
@@ -162,4 +162,32 @@ export async function uploadClientFiles(token: string, formData: FormData): Prom
   revalidatePath(`/portal/${token}`);
   revalidatePath(`/admin/projects/${project.id}`);
   return { ok: true, message: `Thanks — ${saved} file${saved === 1 ? "" : "s"} received.` };
+}
+
+/**
+ * Lets a client take back a file they sent us.
+ *
+ * The file is looked up by id *and* project so a token can only ever reach its
+ * own uploads. Removing the stored object is best-effort: the row going away
+ * is what the client sees, and an orphaned blob is cheaper than an error.
+ */
+export async function deleteClientFile(token: string, fileId: string): Promise<PortalResult> {
+  const project = await projectByToken(token);
+  if (!project) return { ok: false, error: "We couldn't find that project." };
+
+  const file = await prisma.fileUpload.findFirst({
+    where: { id: fileId, projectId: project.id },
+    select: { id: true, url: true, uploadedBy: true },
+  });
+  if (!file) return { ok: false, error: "That file has already been removed." };
+  if (file.uploadedBy !== "CLIENT") {
+    return { ok: false, error: "That file was added by us — send us a message if it should go." };
+  }
+
+  await prisma.fileUpload.delete({ where: { id: file.id } });
+  await deleteUpload(file.url);
+
+  revalidatePath(`/portal/${token}`);
+  revalidatePath(`/admin/projects/${project.id}`);
+  return { ok: true, message: "Removed." };
 }

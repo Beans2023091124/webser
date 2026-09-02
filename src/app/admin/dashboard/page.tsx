@@ -87,7 +87,7 @@ export default async function DashboardPage() {
         }
       />
 
-      <main className="flex-1 overflow-y-auto p-6">
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6">
         {/* Workflow strip */}
         <div className="mb-6 flex items-center gap-2 overflow-x-auto rounded-lg border border-slate-800 bg-slate-900 px-4 py-3 text-xs font-medium text-slate-500">
           {[

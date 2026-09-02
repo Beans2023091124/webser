@@ -32,7 +32,7 @@ export default async function ProjectsPage() {
     <>
       <Topbar title="Clients" description={`${projects.length} project${projects.length === 1 ? "" : "s"}`} />
 
-      <main className="flex-1 overflow-y-auto p-6">
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6">
         {!stripe.configured && (
           <div className="mb-6 flex items-start gap-3 rounded-lg bg-amber-500/10 p-4 text-sm text-amber-300 ring-1 ring-inset ring-amber-500/30">
             <AlertTriangle className="mt-0.5 h-4 w-4 flex-none" />
@@ -78,8 +78,8 @@ export default async function ProjectsPage() {
             No clients yet. Convert a won prospect from its detail page to create the first project.
           </div>
         ) : (
-          <div className="overflow-hidden rounded-lg border border-slate-800 bg-slate-900 shadow-sm">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto rounded-lg border border-slate-800 bg-slate-900 shadow-sm">
+            <table className="w-full min-w-[640px] text-sm">
               <thead className="border-b border-slate-800 bg-slate-900/60 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
                 <tr>
                   <th className="px-4 py-3">Client</th>

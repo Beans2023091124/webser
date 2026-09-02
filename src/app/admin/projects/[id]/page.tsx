@@ -15,7 +15,9 @@ import { Topbar } from "@/components/admin/topbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Input, Label, Textarea } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { DeleteProspectButton } from "@/components/prospects/delete-prospect-button";
 import {
   StatusSelect,
@@ -81,7 +83,7 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
         }
       />
 
-      <main className="flex-1 overflow-y-auto p-6">
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6">
         <Link
           href="/admin/projects"
           className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-300"
@@ -117,7 +119,7 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
                     </div>
                     <div>
                       <Label htmlFor="contactPhone">Phone</Label>
-                      <Input id="contactPhone" name="contactPhone" defaultValue={project.contactPhone ?? ""} />
+                      <PhoneInput id="contactPhone" name="contactPhone" defaultValue={project.contactPhone ?? ""} />
                     </div>
                     <div>
                       <Label htmlFor="price">Build Price ($)</Label>
@@ -146,7 +148,7 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
                     <p className="mt-1.5 text-xs text-slate-500">Never shown to the client.</p>
                   </div>
                   <div className="flex justify-end">
-                    <Button type="submit" size="sm">Save</Button>
+                    <SubmitButton />
                   </div>
                 </form>
               </CardContent>

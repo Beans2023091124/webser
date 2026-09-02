@@ -2,6 +2,7 @@
 
 import { useFormState, useFormStatus } from "react-dom";
 import { Check } from "lucide-react";
+import { usePhoneField } from "@/components/ui/phone-input";
 import { submitLead, type LeadResult } from "@/app/p/[slug]/actions";
 
 type Theme = {
@@ -38,6 +39,7 @@ export function QuoteForm({
   theme: Theme;
 }) {
   const [state, formAction] = useFormState<LeadResult | null, FormData>(submitLead, null);
+  const phone = usePhoneField();
 
   const fieldBase = theme.onLight
     ? "w-full rounded-md border px-3.5 py-3 text-[15px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2"
@@ -105,9 +107,14 @@ export function QuoteForm({
             id="lead-phone"
             name="phone"
             type="tel"
+            inputMode="tel"
+            autoComplete="tel"
             placeholder="(913) 555-0100"
             className={fieldBase}
             style={fieldStyle}
+            ref={phone.ref}
+            value={phone.value}
+            onChange={phone.onChange}
           />
         </div>
         <div>

@@ -208,3 +208,63 @@ export async function removeGalleryImage(previewId: string, url: string): Promis
   revalidatePath(`/p/${preview.slug}`);
   return { ok: true, urls: remaining };
 }
+
+/**
+ * Adds an image that already lives somewhere else on the web.
+ *
+ * The gallery and hero used to be plain text fields on the main form, which
+ * meant a Save could quietly overwrite whatever had been uploaded since the
+ * page loaded. Pasting a URL now writes immediately, exactly like an upload,
+ * so there is only ever one source of truth.
+ */
+export async function addImageByUrl(
+  previewId: string,
+  field: "gallery" | "heroImageUrl" | "logoUrl" | "faviconUrl",
+  rawUrl: string
+): Promise<UploadResult> {
+  try {
+    await requireAdmin();
+  } catch {
+    return { ok: false, error: "You need to be signed in." };
+  }
+
+  const url = rawUrl.trim();
+  if (!url) return { ok: false, error: "Paste an image address first." };
+  if (url.length > 500) return { ok: false, error: "That address is too long." };
+
+  // Root-relative paths are ours (template stock photos); anything else has to
+  // be a plain http(s) URL. This keeps javascript: and data: out of src.
+  const isOwnPath = url.startsWith("/");
+  if (!isOwnPath) {
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      return { ok: false, error: "That doesn't look like an image address." };
+    }
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+      return { ok: false, error: "Image addresses need to start with https://" };
+    }
+  }
+
+  const preview = await prisma.preview.findUnique({
+    where: { id: previewId },
+    select: { slug: true, gallery: true },
+  });
+  if (!preview) return { ok: false, error: "That preview no longer exists." };
+
+  if (field === "gallery") {
+    const existing = ((preview.gallery as string[] | null) ?? []).filter(Boolean);
+    if (existing.includes(url)) return { ok: false, error: "That photo is already in the gallery." };
+    await prisma.preview.update({
+      where: { id: previewId },
+      data: { gallery: [...existing, url] },
+    });
+  } else {
+    await prisma.preview.update({ where: { id: previewId }, data: { [field]: url } });
+  }
+
+  revalidatePath(`/admin/previews/${previewId}`);
+  revalidatePath(`/p/${preview.slug}`);
+  return { ok: true, urls: [url] };
+}
