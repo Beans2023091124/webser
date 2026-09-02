@@ -16,6 +16,7 @@ import { ConvertToProjectButton } from "@/components/prospects/convert-button";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { TextCustomer } from "@/components/admin/text-customer";
 import { prospectTemplates } from "@/lib/text-templates";
+import { getSettings } from "@/lib/settings";
 import { appUrl } from "@/lib/stripe";
 import { mapCategoryToIndustry, INDUSTRY_DEFAULTS } from "@/lib/preview";
 import { updateProspect, deleteProspect, logActivity } from "../actions";
@@ -23,6 +24,7 @@ import { createProjectFromProspect } from "../../projects/actions";
 import { generatePreviewFromProspect } from "../../previews/actions";
 
 export default async function ProspectDetailPage({ params }: { params: { id: string } }) {
+  const settings = await getSettings();
   const prospect = await prisma.prospect.findUnique({
     where: { id: params.id },
     include: {
@@ -78,6 +80,7 @@ export default async function ProspectDetailPage({ params }: { params: { id: str
                     <TextCustomer
                       phone={prospect.phone}
                       templates={prospectTemplates({
+                        ownerName: settings.ownerName,
                         contactName: prospect.contactName,
                         businessName: prospect.businessName,
                         previewUrl: prospect.previews[0] ? `${appUrl()}/p/${prospect.previews[0].slug}` : null,

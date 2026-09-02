@@ -17,6 +17,7 @@ export function prospectTemplates(args: {
   contactName?: string | null;
   businessName: string;
   previewUrl?: string | null;
+  ownerName?: string | null;
 }): TextTemplate[] {
   const who = firstName(args.contactName);
   const link = args.previewUrl;
@@ -24,7 +25,7 @@ export function prospectTemplates(args: {
   const templates: TextTemplate[] = [
     {
       label: "First contact",
-      body: `Hi ${who}, this is Ryder — I build websites for local businesses around Olathe. I noticed ${args.businessName} doesn't have one (or it could use a refresh). I can put a real one together for you to look at, free, and you only pay if you like it. Want me to?`,
+      body: `Hi ${who}, this is ${args.ownerName?.trim() || "Ryder"} — I build websites for local businesses around Olathe. I noticed ${args.businessName} doesn't have one (or it could use a refresh). I can put a real one together for you to look at, free, and you only pay if you like it. Want me to?`,
     },
   ];
 

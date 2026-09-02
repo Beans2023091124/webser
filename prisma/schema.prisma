@@ -498,3 +498,21 @@ model EmailLog {
   sentBy             User?        @relation(fields: [sentById], references: [id])
   sentAt             DateTime     @default(now())
 }
+
+// ---------------------------------------------------------------------------
+// Settings (single row)
+// ---------------------------------------------------------------------------
+
+// Operational details that shouldn't need a deploy to change.
+//
+// Deliberately excludes pricing, which lives in Package and has its own page,
+// and secrets, which belong in environment variables. What's left is the
+// handful of things that appear in messages to customers.
+model Settings {
+  id           String   @id @default("app")
+  ownerName    String   @default("")       // signs off texts: "this is <name>"
+  businessName String   @default("Webser")
+  contactPhone String?
+  contactEmail String?
+  updatedAt    DateTime @updatedAt
+}

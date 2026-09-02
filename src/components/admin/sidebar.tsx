@@ -22,8 +22,8 @@ const nav = [
   { href: "/admin/previews", label: "Previews", icon: MonitorPlay, phase: 2 },
   { href: "/admin/pricing", label: "Pricing", icon: Tags, phase: 2 },
   { href: "/admin/projects", label: "Clients", icon: Briefcase, phase: 3 },
-  { href: "/admin/analytics", label: "Analytics", icon: BarChart3, phase: 4 },
-  { href: "/admin/settings", label: "Settings", icon: Settings, phase: 4 },
+  { href: "/admin/analytics", label: "Analytics", icon: BarChart3, phase: 3 },
+  { href: "/admin/settings", label: "Settings", icon: Settings, phase: 3 },
 ];
 
 export function Sidebar() {
