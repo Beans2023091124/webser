@@ -8,6 +8,9 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  // Migrations take a Postgres advisory lock, which PgBouncer can't hold, so
+  // they run over the direct endpoint while the app keeps using the pooler.
+  directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
 // ---------------------------------------------------------------------------
@@ -208,6 +211,10 @@ model Preview {
 
   status           PreviewStatus  @default(DRAFT)
   viewCount        Int            @default(0)
+
+  // Sample sites shown on the marketing page. Flagged so they can carry an
+  // "example" banner and stay out of the real numbers on Analytics.
+  isDemo           Boolean        @default(false)
 
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt

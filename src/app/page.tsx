@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { prisma } from "@/lib/prisma";
 import {
   Check,
+  ArrowUpRight,
   Smartphone,
   Gauge,
   MessageSquare,
@@ -116,7 +118,18 @@ const faqs = [
   },
 ];
 
-export default function LandingPage() {
+// Rebuilt hourly rather than per request: the examples change rarely and a
+// marketing page shouldn't wait on a database round trip.
+export const revalidate = 3600;
+
+export default async function LandingPage() {
+  const demos = await prisma.preview.findMany({
+    where: { isDemo: true, status: "ACTIVE" },
+    select: { slug: true, businessName: true, tagline: true, heroImageUrl: true, primaryColor: true },
+    orderBy: { createdAt: "asc" },
+    take: 3,
+  });
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 antialiased">
       {/* Nav */}
@@ -128,6 +141,9 @@ export default function LandingPage() {
             <span className="text-lg font-bold tracking-tight text-slate-50">Webser</span>
           </span>
           <nav className="flex items-center gap-6 text-sm">
+            <a href="#examples" className="hidden text-slate-400 transition-colors hover:text-slate-100 sm:block">
+              Examples
+            </a>
             <a href="#pricing" className="hidden text-slate-400 transition-colors hover:text-slate-100 sm:block">
               Pricing
             </a>
@@ -223,6 +239,57 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      {/* Examples */}
+      {demos.length > 0 && (
+        <section id="examples" className="scroll-mt-20 border-b border-slate-900 px-5 py-20 sm:px-8">
+          <div className="mx-auto max-w-6xl">
+            <h2 className="text-3xl font-bold tracking-tight text-slate-50 sm:text-4xl">
+              Have a look at three
+            </h2>
+            <p className="mt-3 max-w-2xl text-[17px] text-slate-400">
+              Real, working sites you can click around &mdash; different trades, different
+              personalities. These are demonstrations rather than customers, so nobody&apos;s
+              phone rings when you try the form.
+            </p>
+
+            <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {demos.map((d) => (
+                <a
+                  key={d.slug}
+                  href={`/p/${d.slug}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="group overflow-hidden rounded-xl border border-slate-800 bg-slate-900 transition-colors hover:border-slate-700"
+                >
+                  <div className="relative aspect-[16/10] overflow-hidden bg-slate-950">
+                    {d.heroImageUrl && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={d.heroImageUrl}
+                        alt=""
+                        loading="lazy"
+                        className="h-full w-full object-cover opacity-80 transition-transform duration-500 group-hover:scale-105 group-hover:opacity-100"
+                      />
+                    )}
+                    <span
+                      className="absolute inset-x-0 bottom-0 h-1"
+                      style={{ backgroundColor: d.primaryColor }}
+                    />
+                  </div>
+                  <div className="p-5">
+                    <p className="font-semibold text-slate-100">{d.businessName}</p>
+                    {d.tagline && <p className="mt-1 text-sm text-slate-500">{d.tagline}</p>}
+                    <span className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-brand-400">
+                      View the site <ArrowUpRight className="h-3.5 w-3.5" />
+                    </span>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* How it works */}
       <section id="how" className="scroll-mt-20 border-b border-slate-900 px-5 py-20 sm:px-8">

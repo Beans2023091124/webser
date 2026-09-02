@@ -205,7 +205,7 @@ export async function PublicSite({ preview }: { preview: Preview }) {
             />
           ) : (
             <span
-              className={`truncate text-base font-extrabold leading-none tracking-tight sm:text-2xl ${
+              className={`truncate text-base font-extrabold leading-none tracking-tight sm:text-2xl lg:text-xl xl:text-2xl ${
                 isCondensed ? "uppercase" : ""
               }`}
               style={{
@@ -1139,6 +1139,21 @@ export async function PublicSite({ preview }: { preview: Preview }) {
         ["--site-strong" as string]: strongText,
       } as React.CSSProperties}
     >
+      {preview.isDemo && (
+        // Someone arriving here directly must not think this is a real
+        // business they can hire. Fictional name, 555 number, and this.
+        <div className="bg-slate-900 px-4 py-2.5 text-center text-[13px] text-white">
+          <span className="font-semibold">Example site</span>
+          <span className="mx-2 text-white/40">|</span>
+          <span className="text-white/70">
+            A demonstration, not a real business.{" "}
+            <a href="/" className="font-semibold text-white underline underline-offset-2">
+              See what Webser builds
+            </a>
+          </span>
+        </div>
+      )}
+
       {/* eslint-disable-next-line @next/next/no-page-custom-font */}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       {/* eslint-disable-next-line @next/next/no-page-custom-font */}

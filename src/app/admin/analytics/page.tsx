@@ -90,12 +90,15 @@ export default async function AnalyticsPage() {
     prisma.prospect.count({ where: { status: { in: ["PREVIEW_SENT", "INTERESTED", "NEGOTIATING", "WON"] } } }),
     prisma.prospect.count({ where: { status: "WON" } }),
     prisma.preview.findMany({
+      // Demos are marketing, not pipeline — they'd otherwise top this list.
+      where: { isDemo: false },
       select: { id: true, slug: true, businessName: true, viewCount: true, _count: { select: { leads: true } } },
       orderBy: { viewCount: "desc" },
       take: 8,
     }),
-    prisma.previewLead.count(),
+    prisma.previewLead.count({ where: { preview: { isDemo: false } } }),
     prisma.previewLead.findMany({
+      where: { preview: { isDemo: false } },
       take: 6,
       orderBy: { createdAt: "desc" },
       select: {
