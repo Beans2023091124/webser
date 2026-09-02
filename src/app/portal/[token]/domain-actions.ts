@@ -10,6 +10,7 @@ import {
   checkDomainPointsToUs,
 } from "@/lib/domain";
 import { publishedSiteUrl } from "@/lib/host";
+import { notifyProjectStatus } from "@/lib/email";
 
 /**
  * The last stretch of the client's journey: picking the address people will
@@ -115,6 +116,8 @@ export async function useFreeAddress(token: string): Promise<DomainResult> {
     },
   });
 
+  await notifyProjectStatus(project.id, ProjectStatus.LIVE);
+
   touch(token, project.id);
   return {
     ok: true,
@@ -173,6 +176,8 @@ export async function verifyDomain(token: string): Promise<DomainResult> {
     where: { id: project.id },
     data: { status: ProjectStatus.LIVE, liveUrl: `https://${domain}` },
   });
+
+  await notifyProjectStatus(project.id, ProjectStatus.LIVE);
 
   touch(token, project.id);
   return { ok: true, message: `${domain} is working — your site is live.` };

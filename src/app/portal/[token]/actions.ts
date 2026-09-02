@@ -1,11 +1,10 @@
 "use server";
 
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
 import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
 import { ProjectStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { storeUpload } from "@/lib/storage";
 
 /**
  * Portal actions.
@@ -121,9 +120,6 @@ export async function uploadClientFiles(token: string, formData: FormData): Prom
   if (files.length === 0) return { ok: false, error: "No files selected." };
   if (files.length > 20) return { ok: false, error: "Please upload 20 files or fewer at a time." };
 
-  const dir = path.join(process.cwd(), "public", "uploads", "projects", project.id);
-  await mkdir(dir, { recursive: true });
-
   let saved = 0;
   for (const file of files) {
     const ext = ALLOWED[file.type];
@@ -136,13 +132,13 @@ export async function uploadClientFiles(token: string, formData: FormData): Prom
 
     // Random stored name; the client's filename is kept only as a label.
     const stored = `${Date.now().toString(36)}-${randomBytes(5).toString("hex")}.${ext}`;
-    await writeFile(path.join(dir, stored), Buffer.from(await file.arrayBuffer()));
+    const url = await storeUpload(`projects/${project.id}/${stored}`, file);
 
     await prisma.fileUpload.create({
       data: {
         projectId: project.id,
         type: file.type === "application/pdf" ? "DOCUMENT" : "IMAGE",
-        url: `/uploads/projects/${project.id}/${stored}`,
+        url,
         filename: file.name.slice(0, 150),
         uploadedBy: "CLIENT",
       },

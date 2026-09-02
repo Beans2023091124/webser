@@ -7,6 +7,7 @@ import { getServerSession } from "next-auth";
 import { ProjectStatus, ProspectStatus, RevisionStatus } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { notifyProjectStatus } from "@/lib/email";
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
@@ -95,6 +96,10 @@ export async function updateProjectStatus(projectId: string, status: ProjectStat
       ...(status === ProjectStatus.APPROVED ? { approvedAt: new Date() } : {}),
     },
   });
+
+  // Fire-and-forget: the client is told the site is ready, but a mail
+  // failure must not make the stage change look like it failed.
+  await notifyProjectStatus(projectId, status);
 
   revalidatePath(`/admin/projects/${projectId}`);
   revalidatePath("/admin/projects");

@@ -1,12 +1,11 @@
 "use server";
 
-import { writeFile, mkdir, unlink } from "fs/promises";
-import path from "path";
 import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { storeUpload, deleteUpload, isOwnUpload } from "@/lib/storage";
 
 const MAX_BYTES = 8 * 1024 * 1024; // 8MB
 
@@ -23,9 +22,9 @@ const ALLOWED: Record<string, string> = {
 
 export type UploadResult = { ok: boolean; urls?: string[]; error?: string };
 
-/** Files land in public/uploads/<previewId>/ and are served as static assets. */
-function uploadDir(previewId: string) {
-  return path.join(process.cwd(), "public", "uploads", previewId);
+/** Key prefix every file for this preview is stored under. */
+function keyPrefix(previewId: string) {
+  return `${previewId}/`;
 }
 
 async function requireAdmin() {
@@ -57,9 +56,6 @@ export async function uploadPreviewImages(previewId: string, formData: FormData)
   if (files.length === 0) return { ok: false, error: "No files selected." };
   if (files.length > 12) return { ok: false, error: "Please upload 12 images or fewer at a time." };
 
-  const dir = uploadDir(previewId);
-  await mkdir(dir, { recursive: true });
-
   const urls: string[] = [];
   for (const file of files) {
     const ext = ALLOWED[file.type];
@@ -71,9 +67,7 @@ export async function uploadPreviewImages(previewId: string, formData: FormData)
     }
 
     const name = `${Date.now().toString(36)}-${randomBytes(5).toString("hex")}.${ext}`;
-    const bytes = Buffer.from(await file.arrayBuffer());
-    await writeFile(path.join(dir, name), bytes);
-    urls.push(`/uploads/${previewId}/${name}`);
+    urls.push(await storeUpload(`${keyPrefix(previewId)}${name}`, file));
   }
 
   revalidatePath(`/admin/previews/${previewId}`);
@@ -154,13 +148,7 @@ export async function clearImageField(
   });
 
   // Only delete files we actually stored for this preview.
-  const ownPrefix = `/uploads/${previewId}/`;
-  if (url && url.startsWith(ownPrefix)) {
-    const name = url.slice(ownPrefix.length);
-    if (name && !name.includes("/") && !name.includes("..")) {
-      await unlink(path.join(uploadDir(previewId), name)).catch(() => {});
-    }
-  }
+  if (url && isOwnUpload(url, keyPrefix(previewId))) await deleteUpload(url);
 
   revalidatePath(`/admin/previews/${previewId}`);
   revalidatePath(`/p/${preview.slug}`);
@@ -185,7 +173,7 @@ export async function uploadHeroImage(previewId: string, formData: FormData): Pr
 /**
  * Removes an image from the gallery, and deletes the file too when it's one
  * we uploaded. Template stock photos are shared across previews, so those are
- * only unlinked from this gallery — never deleted from disk.
+ * only removed from this gallery — never deleted from storage.
  */
 export async function removeGalleryImage(previewId: string, url: string): Promise<UploadResult> {
   try {
@@ -203,14 +191,7 @@ export async function removeGalleryImage(previewId: string, url: string): Promis
   const remaining = ((preview.gallery as string[] | null) ?? []).filter((u) => u !== url);
   await prisma.preview.update({ where: { id: previewId }, data: { gallery: remaining } });
 
-  const ownPrefix = `/uploads/${previewId}/`;
-  if (url.startsWith(ownPrefix)) {
-    const name = url.slice(ownPrefix.length);
-    // Guard against anything that isn't a plain filename.
-    if (name && !name.includes("/") && !name.includes("..")) {
-      await unlink(path.join(uploadDir(previewId), name)).catch(() => {});
-    }
-  }
+  if (isOwnUpload(url, keyPrefix(previewId))) await deleteUpload(url);
 
   revalidatePath(`/admin/previews/${previewId}`);
   revalidatePath(`/p/${preview.slug}`);
