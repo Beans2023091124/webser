@@ -1,5 +1,5 @@
 import type { Preview } from "@prisma/client";
-import { Phone, Mail, MapPin, Star, Clock, Check, ChevronDown, ShieldCheck, Award, CalendarDays } from "lucide-react";
+import { Phone, Mail, MapPin, Star, Clock, Check, ChevronDown, ShieldCheck, Award, CalendarDays, MessageSquare } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { ServiceIcon } from "@/components/site/service-icon";
 import { QuoteForm } from "@/components/site/quote-form";
@@ -70,6 +70,14 @@ export async function PublicSite({ preview }: { preview: Preview }) {
   const S = preview.surfaceColor
     ? { ...surfaces(secondary), page: preview.surfaceColor, alt: shade(preview.surfaceColor, -0.045) }
     : surfaces(secondary);
+
+  // Body copy used to be hard-coded slate, so a client's text colour couldn't
+  // be changed at all. One override drives all three tones, and unset falls
+  // back to exactly the slates that were there before.
+  const bodyText = preview.textColor || "#475569";
+  const mutedText =
+    preview.mutedTextColor || (preview.textColor ? shade(preview.textColor, 0.22) : "#64748b");
+  const strongText = preview.textColor ? shade(preview.textColor, -0.4) : "#0f172a";
 
   const headingFont = preview.headingFont || "Inter";
   const bodyFont = preview.fontFamily || "Inter";
@@ -173,18 +181,18 @@ export async function PublicSite({ preview }: { preview: Preview }) {
         borderColor: isDarkVariant ? undefined : S.borderStrong,
       }}
     >
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-6 px-5 py-4 sm:px-8">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-3.5 sm:gap-6 sm:px-8 sm:py-4">
         <a href="#top" className="flex min-w-0 items-center gap-3">
           {preview.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={preview.logoUrl}
               alt={preview.businessName}
-              className="h-9 w-auto max-w-[190px] object-contain sm:h-11"
+              className="h-8 w-auto max-w-[104px] object-contain sm:h-11 sm:max-w-[190px]"
             />
           ) : (
             <span
-              className={`truncate text-xl font-extrabold leading-none tracking-tight sm:text-2xl ${
+              className={`truncate text-base font-extrabold leading-none tracking-tight sm:text-2xl ${
                 isCondensed ? "uppercase" : ""
               }`}
               style={{
@@ -207,31 +215,33 @@ export async function PublicSite({ preview }: { preview: Preview }) {
           businessName={preview.businessName}
         />
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           {preview.phone && (
             <>
               {/* Full number on tablet and up */}
               <a
                 href={`tel:${preview.phone}`}
-                className={`hidden text-right sm:block ${isDarkVariant ? "text-white" : "text-slate-900"}`}
+                className={`hidden text-right sm:block ${isDarkVariant ? "text-white" : "text-[color:var(--site-strong)]"}`}
               >
-                <span className={`block text-[11px] font-medium uppercase tracking-wider ${isDarkVariant ? "text-white/50" : "text-slate-500"}`}>
+                <span className={`block text-[11px] font-medium uppercase tracking-wider ${isDarkVariant ? "text-white/50" : "text-[color:var(--site-muted)]"}`}>
                   Call today
                 </span>
                 <span className="block text-base font-bold leading-tight" style={H}>
                   {preview.phone}
                 </span>
               </a>
-              {/* Compact tap-to-call on phones, where the number is the conversion */}
+              {/* The number itself on phones - it is the conversion, so it
+                  should not be hidden behind an icon. */}
               <a
                 href={`tel:${preview.phone}`}
                 aria-label={`Call ${preview.businessName}`}
-                className={`flex h-10 w-10 flex-none items-center justify-center rounded-md sm:hidden ${
-                  isDarkVariant ? "bg-white/10 text-white" : "text-slate-900"
+                className={`flex flex-none items-center gap-1.5 rounded-md px-2.5 py-2 text-[13px] font-bold sm:hidden ${
+                  isDarkVariant ? "bg-white/10 text-white" : "text-[color:var(--site-strong)]"
                 }`}
-                style={isDarkVariant ? undefined : { backgroundColor: S.alt }}
+                style={isDarkVariant ? { ...H } : { ...H, backgroundColor: S.alt }}
               >
-                <Phone className="h-5 w-5" strokeWidth={2} />
+                <Phone className="h-4 w-4 flex-none" strokeWidth={2.2} />
+                <span className="whitespace-nowrap">{preview.phone}</span>
               </a>
             </>
           )}
@@ -328,8 +338,8 @@ export async function PublicSite({ preview }: { preview: Preview }) {
                   <Star className="ml-1 inline h-6 w-6 -translate-y-1" fill={primary} stroke="none" />
                 )}
               </p>
-              <p className="mt-2.5 text-sm font-semibold text-slate-800">{stat.label}</p>
-              {stat.sub && <p className="mt-0.5 text-xs text-slate-500">{stat.sub}</p>}
+              <p className="mt-2.5 text-sm font-semibold text-[color:var(--site-strong)]">{stat.label}</p>
+              {stat.sub && <p className="mt-0.5 text-xs text-[color:var(--site-muted)]">{stat.sub}</p>}
             </div>
           ))}
         </div>
@@ -342,10 +352,10 @@ export async function PublicSite({ preview }: { preview: Preview }) {
       className="rounded-xl p-6 shadow-2xl ring-1 ring-black/5 sm:p-7"
       style={{ backgroundColor: S.card }}
     >
-      <h3 className="text-xl font-bold text-slate-900" style={H}>
+      <h3 className="text-xl font-bold text-[color:var(--site-strong)]" style={H}>
         {formCopy.heading}
       </h3>
-      <p className="mt-1.5 text-sm text-slate-500">{formCopy.blurb}</p>
+      <p className="mt-1.5 text-sm text-[color:var(--site-muted)]">{formCopy.blurb}</p>
       <div className="mt-5">
         <QuoteForm
           previewId={preview.id}
@@ -393,10 +403,10 @@ export async function PublicSite({ preview }: { preview: Preview }) {
               >
                 <ServiceIcon name={s.icon} className="h-6 w-6" style={{ color: primary }} />
               </div>
-              <h3 className="text-lg font-bold text-slate-900" style={H}>
+              <h3 className="text-lg font-bold text-[color:var(--site-strong)]" style={H}>
                 {s.name}
               </h3>
-              {s.description && <p className="mt-2 text-[15px] leading-relaxed text-slate-600">{s.description}</p>}
+              {s.description && <p className="mt-2 text-[15px] leading-relaxed text-[color:var(--site-body)]">{s.description}</p>}
             </div>
           ))}
         </div>
@@ -422,7 +432,7 @@ export async function PublicSite({ preview }: { preview: Preview }) {
               <span className="text-5xl font-extrabold leading-none" style={{ ...H, color: primary }}>
                 {preview.yearsInBusiness}
               </span>
-              <span className="text-sm font-medium leading-tight text-slate-500">
+              <span className="text-sm font-medium leading-tight text-[color:var(--site-muted)]">
                 years serving
                 <br />
                 the community
@@ -432,7 +442,7 @@ export async function PublicSite({ preview }: { preview: Preview }) {
         </div>
 
         <div className="lg:col-span-7">
-          <p className="text-lg leading-[1.75] text-slate-700">{preview.aboutText}</p>
+          <p className="text-lg leading-[1.75] text-[color:var(--site-body)]">{preview.aboutText}</p>
 
           {whyChooseUs.length > 0 && (
             <div className="mt-10 space-y-7 border-t pt-9" style={{ borderColor: S.border }}>
@@ -445,10 +455,10 @@ export async function PublicSite({ preview }: { preview: Preview }) {
                     {String(i + 1).padStart(2, "0")}
                   </span>
                   <div>
-                    <h3 className="font-bold text-slate-900" style={H}>
+                    <h3 className="font-bold text-[color:var(--site-strong)]" style={H}>
                       {w.title}
                     </h3>
-                    <p className="mt-1 text-[15px] leading-relaxed text-slate-600">{w.description}</p>
+                    <p className="mt-1 text-[15px] leading-relaxed text-[color:var(--site-body)]">{w.description}</p>
                   </div>
                 </div>
               ))}
@@ -536,7 +546,7 @@ export async function PublicSite({ preview }: { preview: Preview }) {
             <h2 className={`text-2xl font-extrabold sm:text-3xl ${isCondensed ? "uppercase" : ""}`} style={{ ...H, color: heading }}>
               Proudly serving the area
             </h2>
-            <p className="mt-2.5 text-[15px] text-slate-600">
+            <p className="mt-2.5 text-[15px] text-[color:var(--site-body)]">
               Not sure if you're in range? Give us a call — if we can get to you, we will.
             </p>
           </div>
@@ -558,7 +568,7 @@ export async function PublicSite({ preview }: { preview: Preview }) {
             {serviceAreas.map((area) => (
               <span
                 key={area}
-                className="reveal rounded-full px-4 py-2 text-center text-sm font-medium text-slate-700 shadow-sm ring-1 ring-inset transition-transform duration-200 hover:-translate-y-0.5"
+                className="reveal rounded-full px-4 py-2 text-center text-sm font-medium text-[color:var(--site-body)] shadow-sm ring-1 ring-inset transition-transform duration-200 hover:-translate-y-0.5"
                 style={{ backgroundColor: S.card, ["--tw-ring-color" as string]: S.borderStrong }}
               >
                 {area}
@@ -584,7 +594,7 @@ export async function PublicSite({ preview }: { preview: Preview }) {
             Common questions
           </h2>
           {preview.phone && (
-            <p className="mt-4 text-[15px] text-slate-600">
+            <p className="mt-4 text-[15px] text-[color:var(--site-body)]">
               Don't see yours?{" "}
               <a href={`tel:${preview.phone}`} className="font-semibold underline" style={{ color: primary }}>
                 Give us a call.
@@ -602,14 +612,14 @@ export async function PublicSite({ preview }: { preview: Preview }) {
                 style={i > 0 ? { borderTop: `1px solid ${S.borderStrong}` } : undefined}
               >
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-4 text-left">
-                  <span className="text-[17px] font-semibold text-slate-900" style={H}>
+                  <span className="text-[17px] font-semibold text-[color:var(--site-strong)]" style={H}>
                     {f.question}
                   </span>
-                  <ChevronDown className="faq-chevron h-5 w-5 flex-none text-slate-400" strokeWidth={2} />
+                  <ChevronDown className="faq-chevron h-5 w-5 flex-none text-[color:var(--site-muted)]" strokeWidth={2} />
                 </summary>
                 <div className="faq-body">
                   <div>
-                    <p className="max-w-2xl pb-4 text-[15px] leading-relaxed text-slate-600">{f.answer}</p>
+                    <p className="max-w-2xl pb-4 text-[15px] leading-relaxed text-[color:var(--site-body)]">{f.answer}</p>
                   </div>
                 </div>
               </details>
@@ -644,14 +654,28 @@ export async function PublicSite({ preview }: { preview: Preview }) {
                   <Phone className="h-5 w-5" style={{ color: primary }} strokeWidth={1.8} />
                 </span>
                 <span>
-                  <span className="block text-xs font-medium uppercase tracking-wider text-slate-500">Phone</span>
-                  <span className="block text-lg font-bold text-slate-900" style={H}>
+                  <span className="block text-xs font-medium uppercase tracking-wider text-[color:var(--site-muted)]">Phone</span>
+                  <span className="block text-lg font-bold text-[color:var(--site-strong)]" style={H}>
                     {preview.phone}
                   </span>
                 </span>
               </a>
             )}
-            {preview.email && (
+            {preview.phone && preview.smsEnabled && (
+              <a
+                href={`sms:${preview.phone.replace(/[^\d+]/g, "")}`}
+                className="group flex items-center gap-4 rounded-lg px-3 py-3.5 -mx-3 transition-colors hover:bg-black/[0.035]"
+              >
+                <span className="flex h-11 w-11 flex-none items-center justify-center rounded-lg" style={{ backgroundColor: rgba(primary, 0.1) }}>
+                  <MessageSquare className="h-5 w-5" style={{ color: primary }} strokeWidth={1.8} />
+                </span>
+                <span>
+                  <span className="block text-xs font-medium uppercase tracking-wider text-[color:var(--site-muted)]">Text</span>
+                  <span className="block font-semibold text-[color:var(--site-strong)]">Send us a message</span>
+                </span>
+              </a>
+            )}
+            {preview.email && preview.showEmailContact && (
               <a
                 href={`mailto:${preview.email}`}
                 className="group flex items-center gap-4 rounded-lg px-3 py-3.5 -mx-3 transition-colors hover:bg-black/[0.035]"
@@ -660,8 +684,8 @@ export async function PublicSite({ preview }: { preview: Preview }) {
                   <Mail className="h-5 w-5" style={{ color: primary }} strokeWidth={1.8} />
                 </span>
                 <span>
-                  <span className="block text-xs font-medium uppercase tracking-wider text-slate-500">Email</span>
-                  <span className="block font-semibold text-slate-900">{preview.email}</span>
+                  <span className="block text-xs font-medium uppercase tracking-wider text-[color:var(--site-muted)]">Email</span>
+                  <span className="block font-semibold text-[color:var(--site-strong)]">{preview.email}</span>
                 </span>
               </a>
             )}
@@ -671,16 +695,33 @@ export async function PublicSite({ preview }: { preview: Preview }) {
                   <MapPin className="h-5 w-5" style={{ color: primary }} strokeWidth={1.8} />
                 </span>
                 <span>
-                  <span className="block text-xs font-medium uppercase tracking-wider text-slate-500">Location</span>
-                  <span className="block font-semibold text-slate-900">{preview.address}</span>
+                  <span className="block text-xs font-medium uppercase tracking-wider text-[color:var(--site-muted)]">Location</span>
+                  <span className="block font-semibold text-[color:var(--site-strong)]">{preview.address}</span>
                 </span>
               </div>
             )}
           </div>
 
+          {preview.bookingUrl && (
+            <a
+              href={preview.bookingUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg px-6 py-3.5 text-[15px] font-semibold shadow-sm transition-opacity hover:opacity-90 sm:w-auto"
+              style={{ backgroundColor: primary, color: onPrimary }}
+            >
+              <CalendarDays className="h-4 w-4" />
+              Book online
+            </a>
+          )}
+
+          {preview.contactNote && (
+            <p className="mt-4 text-[15px] text-[color:var(--site-body)]">{preview.contactNote}</p>
+          )}
+
           {hasHours && (
             <div className="mt-8 rounded-xl border p-6" style={{ borderColor: S.borderStrong, backgroundColor: S.card }}>
-              <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-slate-900">
+              <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[color:var(--site-strong)]">
                 <Clock className="h-4 w-4" style={{ color: primary }} />
                 Hours
               </h3>
@@ -689,8 +730,8 @@ export async function PublicSite({ preview }: { preview: Preview }) {
                   const closed = /closed/i.test(hours[d]);
                   return (
                     <div key={d} className="flex justify-between gap-4">
-                      <dt className="text-slate-600">{d}</dt>
-                      <dd className={closed ? "text-slate-400" : "font-medium text-slate-900"}>{hours[d]}</dd>
+                      <dt className="text-[color:var(--site-body)]">{d}</dt>
+                      <dd className={closed ? "text-[color:var(--site-muted)]" : "font-medium text-[color:var(--site-strong)]"}>{hours[d]}</dd>
                     </div>
                   );
                 })}
@@ -709,10 +750,10 @@ export async function PublicSite({ preview }: { preview: Preview }) {
           className="rounded-2xl p-7 ring-1 ring-inset sm:p-9"
           style={{ backgroundColor: S.alt, ["--tw-ring-color" as string]: S.borderStrong }}
         >
-          <h3 className="text-2xl font-bold text-slate-900" style={H}>
+          <h3 className="text-2xl font-bold text-[color:var(--site-strong)]" style={H}>
             {formCopy.heading}
           </h3>
-          <p className="mt-2 text-[15px] text-slate-600">{formCopy.blurb}</p>
+          <p className="mt-2 text-[15px] text-[color:var(--site-body)]">{formCopy.blurb}</p>
           <div className="mt-6">
             <QuoteForm
               previewId={preview.id}
@@ -984,7 +1025,7 @@ export async function PublicSite({ preview }: { preview: Preview }) {
           >
             {headline}
           </h1>
-          {sub && <p className="mt-6 max-w-xl text-lg leading-[1.7] text-slate-600">{sub}</p>}
+          {sub && <p className="mt-6 max-w-xl text-lg leading-[1.7] text-[color:var(--site-body)]">{sub}</p>}
 
           <div className="mt-9 flex flex-wrap items-center gap-4">
             <a
@@ -1010,7 +1051,7 @@ export async function PublicSite({ preview }: { preview: Preview }) {
           {badges.length > 0 && (
             <ul className="mt-10 flex flex-wrap gap-x-7 gap-y-3">
               {badges.map((b) => (
-                <li key={b} className="flex items-center gap-2 text-sm font-medium text-slate-600">
+                <li key={b} className="flex items-center gap-2 text-sm font-medium text-[color:var(--site-body)]">
                   <Check className="h-4 w-4 flex-none" strokeWidth={3} style={{ color: primary }} />
                   {b}
                 </li>
@@ -1074,8 +1115,14 @@ export async function PublicSite({ preview }: { preview: Preview }) {
 
   return (
     <div
-      className="site-light scroll-smooth text-slate-900 antialiased"
-      style={{ backgroundColor: S.page, fontFamily: `'${bodyFont}', system-ui, -apple-system, sans-serif` }}
+      className="site-light scroll-smooth text-[color:var(--site-strong)] antialiased"
+      style={{
+        backgroundColor: S.page,
+        fontFamily: `'${bodyFont}', system-ui, -apple-system, sans-serif`,
+        ["--site-body" as string]: bodyText,
+        ["--site-muted" as string]: mutedText,
+        ["--site-strong" as string]: strongText,
+      } as React.CSSProperties}
     >
       {/* eslint-disable-next-line @next/next/no-page-custom-font */}
       <link rel="preconnect" href="https://fonts.googleapis.com" />

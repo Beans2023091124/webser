@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Menu, X, Phone } from "lucide-react";
 
@@ -29,8 +29,19 @@ export function SiteNav({
 }) {
   const [active, setActive] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  // Kept mounted through the closing animation, then dropped.
+  const [closing, setClosing] = useState(false);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+
+  const CLOSE_MS = 200;
+  const close = useCallback(() => {
+    setClosing(true);
+    window.setTimeout(() => {
+      setOpen(false);
+      setClosing(false);
+    }, CLOSE_MS);
+  }, []);
 
   // Highlight whichever section currently occupies the upper part of the screen.
   useEffect(() => {
@@ -64,13 +75,15 @@ export function SiteNav({
     if (!open) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+    };
     window.addEventListener("keydown", onKey);
     return () => {
       document.body.style.overflow = prev;
       window.removeEventListener("keydown", onKey);
     };
-  }, [open]);
+  }, [open, close]);
 
   const idle = dark ? "text-white/65" : "text-slate-500";
   const hover = dark ? "hover:text-white" : "hover:text-slate-900";
@@ -99,28 +112,49 @@ export function SiteNav({
         })}
       </nav>
 
-      {/* Mobile trigger */}
+      {/*
+        Mobile trigger. `order-last` puts it at the far right of the header
+        without disturbing the desktop arrangement, where this button is hidden
+        and the nav above sits between the logo and the call-to-action.
+      */}
       <button
         type="button"
-        onClick={() => setOpen(true)}
-        aria-label="Open menu"
+        onClick={() => (open ? close() : setOpen(true))}
+        aria-label={open ? "Close menu" : "Open menu"}
         aria-expanded={open}
-        className={`flex h-10 w-10 flex-none items-center justify-center rounded-md lg:hidden ${
+        className={`order-last flex h-10 w-10 flex-none items-center justify-center rounded-md transition-colors lg:hidden ${
           dark ? "bg-white/10 text-white" : "bg-black/[0.06] text-slate-900"
         }`}
       >
-        <Menu className="h-5 w-5" />
+        <span className="relative block h-5 w-5">
+          <Menu
+            className={`absolute inset-0 h-5 w-5 transition-all duration-200 ${
+              open ? "rotate-90 opacity-0" : "rotate-0 opacity-100"
+            }`}
+          />
+          <X
+            className={`absolute inset-0 h-5 w-5 transition-all duration-200 ${
+              open ? "rotate-0 opacity-100" : "-rotate-90 opacity-0"
+            }`}
+          />
+        </span>
       </button>
 
       {/* Mobile sheet */}
       {open && mounted && createPortal(
         <div className="fixed inset-0 z-[80] lg:hidden">
           <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={() => setOpen(false)}
+            className={`absolute inset-0 bg-black/60 backdrop-blur-sm ${
+              closing ? "animate-[scrimOut_200ms_ease-out_forwards]" : "animate-[scrimIn_200ms_ease-out]"
+            }`}
+            onClick={close}
           />
           <div
-            className="absolute inset-x-0 top-0 max-h-[88vh] overflow-y-auto p-5 shadow-2xl animate-[sheetIn_260ms_cubic-bezier(0.22,1,0.36,1)]"
+            className={`absolute inset-x-0 top-0 max-h-[88vh] overflow-y-auto p-5 shadow-2xl ${
+              closing
+                ? "animate-[sheetOut_200ms_cubic-bezier(0.4,0,1,1)_forwards]"
+                : "animate-[sheetIn_260ms_cubic-bezier(0.22,1,0.36,1)]"
+            }`}
             style={{ backgroundColor: dark ? "#0e0e0e" : "#ffffff" }}
           >
             <div className="mb-5 flex items-center justify-between">
@@ -131,7 +165,7 @@ export function SiteNav({
               </span>
               <button
                 type="button"
-                onClick={() => setOpen(false)}
+                onClick={close}
                 aria-label="Close menu"
                 className={`rounded-md p-2 ${dark ? "text-white/70" : "text-slate-500"}`}
               >
@@ -144,7 +178,7 @@ export function SiteNav({
                 <a
                   key={l.href}
                   href={l.href}
-                  onClick={() => setOpen(false)}
+                  onClick={close}
                   className={`border-b py-3.5 text-base font-medium ${
                     dark ? "border-white/10 text-white/85" : "border-slate-200 text-slate-700"
                   }`}
@@ -157,7 +191,7 @@ export function SiteNav({
             <div className="mt-5 flex flex-col gap-2.5">
               <a
                 href="#quote"
-                onClick={() => setOpen(false)}
+                onClick={close}
                 className="rounded-md px-5 py-3.5 text-center text-[15px] font-semibold text-white"
                 style={{ backgroundColor: accent }}
               >

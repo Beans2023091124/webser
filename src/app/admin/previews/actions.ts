@@ -154,6 +154,8 @@ export async function updatePreview(previewId: string, formData: FormData) {
       surfaceColor: parsed.surfaceColor,
       headingColor: parsed.headingColor,
       footerColor: parsed.footerColor,
+      textColor: parsed.textColor,
+      mutedTextColor: parsed.mutedTextColor,
       galleryHeading: parsed.galleryHeading || null,
 
       heroHeadline: parsed.heroHeadline || null,
@@ -180,6 +182,10 @@ export async function updatePreview(previewId: string, formData: FormData) {
       googleRating: parsed.googleRating ?? null,
       reviewCount: parsed.reviewCount ?? null,
       emergencyService: raw.emergencyService === "on",
+      smsEnabled: raw.smsEnabled === "on",
+      showEmailContact: raw.showEmailContact === "on",
+      bookingUrl: parsed.bookingUrl || null,
+      contactNote: parsed.contactNote || null,
       freeEstimates: raw.freeEstimates === "on",
       showStats: raw.showStats === "on",
 

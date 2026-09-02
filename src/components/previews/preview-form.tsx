@@ -218,6 +218,36 @@ export function PreviewForm({
               <Input id="footerColorText" name="footerColor" defaultValue={preview.footerColor ?? ""} placeholder="auto" />
             </div>
           </div>
+          <div>
+            <Label htmlFor="textColorText">Body Text</Label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                defaultValue={preview.textColor ?? "#475569"}
+                onChange={(e) => {
+                  const t = document.getElementById("textColorText") as HTMLInputElement | null;
+                  if (t) t.value = e.target.value;
+                }}
+                className="h-9 w-10 flex-none cursor-pointer rounded border border-slate-700 bg-slate-900"
+              />
+              <Input id="textColorText" name="textColor" defaultValue={preview.textColor ?? ""} placeholder="auto" />
+            </div>
+          </div>
+          <div>
+            <Label htmlFor="mutedTextColorText">Muted Text</Label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                defaultValue={preview.mutedTextColor ?? "#64748b"}
+                onChange={(e) => {
+                  const t = document.getElementById("mutedTextColorText") as HTMLInputElement | null;
+                  if (t) t.value = e.target.value;
+                }}
+                className="h-9 w-10 flex-none cursor-pointer rounded border border-slate-700 bg-slate-900"
+              />
+              <Input id="mutedTextColorText" name="mutedTextColor" defaultValue={preview.mutedTextColor ?? ""} placeholder="auto" />
+            </div>
+          </div>
           <div className="sm:col-span-2 lg:col-span-4">
             <p className="text-xs text-slate-500">
               Leave a colour blank to derive it automatically from the dark colour — that&apos;s what keeps a freshly
@@ -577,6 +607,31 @@ export function PreviewForm({
             <Label htmlFor="mapEmbedUrl">Google Maps Embed URL</Label>
             <Input id="mapEmbedUrl" name="mapEmbedUrl" defaultValue={preview.mapEmbedUrl ?? ""} placeholder="https://www.google.com/maps/embed?…" />
           </div>
+          <div className="sm:col-span-2">
+            <Label htmlFor="bookingUrl">Online Booking Link</Label>
+            <Input id="bookingUrl" name="bookingUrl" defaultValue={preview.bookingUrl ?? ""} placeholder="https://calendly.com/… (adds a Book Online button)" />
+          </div>
+          <div className="sm:col-span-2">
+            <Label htmlFor="contactNote">Note Above the Form</Label>
+            <Input id="contactNote" name="contactNote" defaultValue={preview.contactNote ?? ""} placeholder="Texts answered fastest — usually within the hour" />
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-md border border-slate-800 bg-slate-950/40 p-3">
+          <p className="mb-2.5 text-xs font-medium text-slate-300">How customers get in touch</p>
+          <div className="flex flex-wrap gap-x-6 gap-y-2.5">
+            <label className="flex items-center gap-2 text-sm text-slate-300">
+              <input type="checkbox" name="smsEnabled" defaultChecked={preview.smsEnabled} className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-brand-600" />
+              Text us button
+            </label>
+            <label className="flex items-center gap-2 text-sm text-slate-300">
+              <input type="checkbox" name="showEmailContact" defaultChecked={preview.showEmailContact} className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-brand-600" />
+              Show email address
+            </label>
+          </div>
+          <p className="mt-2.5 text-xs text-slate-500">
+            Calling is always offered when a phone number is set. Texting uses the same number.
+          </p>
         </div>
 
         <div className="mt-4">

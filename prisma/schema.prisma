@@ -152,6 +152,15 @@ model Preview {
   surfaceColor     String?        // light page background
   headingColor     String?        // section headings
   footerColor      String?        // footer / dark bands
+  textColor        String?        // body copy
+  mutedTextColor   String?        // captions, labels, secondary lines
+
+  // How customers are invited to make contact. Phone is assumed; these are
+  // the extras a particular business actually wants.
+  smsEnabled       Boolean        @default(false)  // "Text us" alongside calling
+  showEmailContact Boolean        @default(true)   // email shown when one is set
+  bookingUrl       String?        // online scheduler, if they have one
+  contactNote      String?        // e.g. "Texts answered fastest"
 
   faviconUrl       String?        // uploaded favicon, else generated from initials
   galleryHeading   String?        // overrides the per-variant default

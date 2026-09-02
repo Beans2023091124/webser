@@ -30,12 +30,16 @@ export const previewSchema = z.object({
   surfaceColor: optionalHex,
   headingColor: optionalHex,
   footerColor: optionalHex,
+  textColor: optionalHex,
+  mutedTextColor: optionalHex,
   galleryHeading: z.string().trim().max(80).optional().or(z.literal("")),
 
   heroHeadline: z.string().trim().max(200).optional().or(z.literal("")),
   heroSubheadline: z.string().trim().max(400).optional().or(z.literal("")),
   heroImageUrl: z.string().trim().max(500).optional().or(z.literal("")),
   aboutText: z.string().trim().max(3000).optional().or(z.literal("")),
+  bookingUrl: z.string().trim().max(500).optional().or(z.literal("")),
+  contactNote: z.string().trim().max(160).optional().or(z.literal("")),
 
   yearsInBusiness: optionalInt,
   licenseNumber: z.string().trim().max(60).optional().or(z.literal("")),
