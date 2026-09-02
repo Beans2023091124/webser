@@ -17,6 +17,14 @@ import { put, del } from "@vercel/blob";
 
 const BLOB_HOST_SUFFIX = ".blob.vercel-storage.com";
 
+/** Thrown when there is nowhere to put the file, so callers can say so nicely. */
+export class StorageUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "StorageUnavailableError";
+  }
+}
+
 export function blobConfigured(): boolean {
   return Boolean(process.env.BLOB_READ_WRITE_TOKEN?.trim());
 }
@@ -36,6 +44,15 @@ export async function storeUpload(key: string, file: File): Promise<string> {
       contentType: file.type || undefined,
     });
     return url;
+  }
+
+  // The local fallback only exists for development. On Vercel the filesystem
+  // is read-only, so writing here throws EROFS and surfaces as a 500 with no
+  // explanation — better to say plainly that storage isn't connected yet.
+  if (process.env.VERCEL) {
+    throw new StorageUnavailableError(
+      "File storage isn't connected yet. Create a Blob store in the Vercel dashboard (Storage > Create > Blob) and redeploy."
+    );
   }
 
   const full = path.join(process.cwd(), "public", "uploads", key);

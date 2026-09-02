@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { storeUpload, deleteUpload, isOwnUpload } from "@/lib/storage";
+import { storeUpload, deleteUpload, isOwnUpload, StorageUnavailableError } from "@/lib/storage";
 
 const MAX_BYTES = 8 * 1024 * 1024; // 8MB
 
@@ -67,7 +67,16 @@ export async function uploadPreviewImages(previewId: string, formData: FormData)
     }
 
     const name = `${Date.now().toString(36)}-${randomBytes(5).toString("hex")}.${ext}`;
-    urls.push(await storeUpload(`${keyPrefix(previewId)}${name}`, file));
+    try {
+      urls.push(await storeUpload(`${keyPrefix(previewId)}${name}`, file));
+    } catch (e) {
+      // A storage problem is a message, not a crashed page.
+      if (e instanceof StorageUnavailableError) return { ok: false, error: e.message };
+      return {
+        ok: false,
+        error: e instanceof Error ? `Upload failed: ${e.message}` : "Upload failed.",
+      };
+    }
   }
 
   revalidatePath(`/admin/previews/${previewId}`);

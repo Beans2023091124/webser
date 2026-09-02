@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { notifyNewLead } from "@/lib/email";
 
 const leadSchema = z.object({
   previewId: z.string().min(1),
@@ -37,7 +38,7 @@ export async function submitLead(_prev: LeadResult | null, formData: FormData): 
     return { ok: false, error: "This form is no longer accepting submissions." };
   }
 
-  await prisma.previewLead.create({
+  const lead = await prisma.previewLead.create({
     data: {
       previewId: preview.id,
       name,
@@ -47,6 +48,14 @@ export async function submitLead(_prev: LeadResult | null, formData: FormData): 
       message: message || null,
     },
   });
+
+  // Forward it to the business. The enquiry is already saved, so a mail
+  // failure must not tell the customer their message didn't go through.
+  try {
+    await notifyNewLead(lead.id);
+  } catch {
+    // Logged in EmailLog by sendEmail; nothing useful to do here.
+  }
 
   return { ok: true };
 }

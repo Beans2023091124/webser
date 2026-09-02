@@ -4,7 +4,7 @@ import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
 import { ProjectStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { storeUpload } from "@/lib/storage";
+import { storeUpload, StorageUnavailableError } from "@/lib/storage";
 
 /**
  * Portal actions.
@@ -132,7 +132,16 @@ export async function uploadClientFiles(token: string, formData: FormData): Prom
 
     // Random stored name; the client's filename is kept only as a label.
     const stored = `${Date.now().toString(36)}-${randomBytes(5).toString("hex")}.${ext}`;
-    const url = await storeUpload(`projects/${project.id}/${stored}`, file);
+    let url: string;
+    try {
+      url = await storeUpload(`projects/${project.id}/${stored}`, file);
+    } catch (e) {
+      // The client shouldn't see our infrastructure problem as a broken page.
+      if (e instanceof StorageUnavailableError) {
+        return { ok: false, error: "We can't accept files just now — we've been told about it." };
+      }
+      return { ok: false, error: "That upload didn't go through. Please try again." };
+    }
 
     await prisma.fileUpload.create({
       data: {

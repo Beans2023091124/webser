@@ -92,6 +92,69 @@ export async function sendEmail(args: SendArgs): Promise<{ ok: boolean; error?: 
 }
 
 /**
+ * Forwards a quote request to the business it was meant for.
+ *
+ * The lead is already saved before this runs, so a missing address or a failed
+ * send costs the enquiry nothing — it's still in the admin. Sent only when the
+ * business has an email on their site settings; there's nowhere else to guess
+ * an address from.
+ */
+export async function notifyNewLead(leadId: string): Promise<void> {
+  const lead = await prisma.previewLead.findUnique({
+    where: { id: leadId },
+    select: {
+      name: true,
+      phone: true,
+      email: true,
+      service: true,
+      message: true,
+      preview: { select: { id: true, businessName: true, email: true } },
+    },
+  });
+  if (!lead?.preview.email) return;
+
+  const rows: [string, string | null][] = [
+    ["Name", lead.name],
+    ["Phone", lead.phone || null],
+    ["Email", lead.email || null],
+    ["Service", lead.service || null],
+  ];
+
+  const details = rows
+    .filter(([, v]) => v)
+    .map(
+      ([k, v]) =>
+        `<tr><td style="padding:6px 16px 6px 0;color:#64748b;font-size:14px;white-space:nowrap">${k}</td><td style="padding:6px 0;font-size:15px;font-weight:600">${v}</td></tr>`
+    )
+    .join("");
+
+  // Give them something tappable on a phone — that's where they'll read this.
+  const replyTo = lead.phone
+    ? `<a href="tel:${lead.phone.replace(/[^\d+]/g, "")}" style="display:inline-block;background:#1463FF;color:#fff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 24px;border-radius:9px">Call ${lead.name}</a>`
+    : lead.email
+    ? `<a href="mailto:${lead.email}" style="display:inline-block;background:#1463FF;color:#fff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 24px;border-radius:9px">Email ${lead.name}</a>`
+    : "";
+
+  await sendEmail({
+    to: lead.preview.email,
+    template: "new-lead",
+    subject: `New enquiry from ${lead.name}${lead.service ? ` — ${lead.service}` : ""}`,
+    html: layout(`
+      <p style="margin:0 0 18px;font-size:16px;line-height:1.6">
+        Someone filled in the form on your website.
+      </p>
+      <table style="border-collapse:collapse;margin:0 0 18px">${details}</table>
+      ${
+        lead.message
+          ? `<p style="margin:0 0 22px;padding:14px 16px;background:#f1f5f9;border-radius:9px;font-size:15px;line-height:1.6;white-space:pre-wrap">${lead.message}</p>`
+          : ""
+      }
+      ${replyTo}
+    `),
+  });
+}
+
+/**
  * Tells the client when their project reaches a stage that needs them.
  *
  * Only two stages actually warrant an email: the site is ready to look at,

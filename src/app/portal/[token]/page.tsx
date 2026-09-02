@@ -195,6 +195,31 @@ export default async function PortalPage({
           </ol>
         </Card>
 
+        {/* Sign-off — the one thing we need from them at this stage */}
+        {canReview && (
+          <Card className="border-brand-500/30 bg-gradient-to-b from-brand-500/[0.07] to-slate-900">
+            <h2 className="text-lg font-bold text-slate-50">Happy with it?</h2>
+            <p className="mt-1.5 text-[15px] leading-relaxed text-slate-400">
+              Have a look through your site. If it&apos;s right, approve it and we&apos;ll get it
+              published. If something needs changing, tell us further down — there&apos;s no rush.
+            </p>
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <ApproveButton token={params.token} />
+              {previewUrl && (
+                <a
+                  href={project.liveUrl || previewUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-700 px-5 py-3 text-[15px] font-semibold text-slate-200 transition-colors hover:bg-slate-800"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Look at it again
+                </a>
+              )}
+            </div>
+          </Card>
+        )}
+
         {/* Web address — the live task once they've approved */}
         {inDomainSetup && <Card>{domainSetup("primary")}</Card>}
 
@@ -390,11 +415,6 @@ export default async function PortalPage({
             <div className="mt-5">
               <RevisionForm token={params.token} placeholder={askForChanges.placeholder} />
             </div>
-            {canReview && (
-              <div className="mt-7 border-t border-slate-800 pt-6">
-                <ApproveButton token={params.token} />
-              </div>
-            )}
           </Card>
         )}
 

@@ -14,7 +14,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/input";
+import { Select, Textarea } from "@/components/ui/input";
 import {
   updateProjectStatus,
   setRevisionStatus,
@@ -247,30 +247,56 @@ export function ApplyWithAiButton({
 }) {
   const router = useRouter();
   const [result, setResult] = useState<ApplyRevisionResult | null>(null);
+  const [note, setNote] = useState("");
+  const [showNote, setShowNote] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   return (
     <div className="w-full">
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        disabled={isPending}
-        onClick={() =>
-          startTransition(async () => {
-            const res = await applyRevisionWithAi(revisionId);
-            setResult(res);
-            if (res.ok) router.refresh();
-          })
-        }
-      >
-        {isPending ? (
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        ) : (
-          <Sparkles className="h-3.5 w-3.5 text-brand-400" />
-        )}
-        {isPending ? "Applying…" : "Apply with AI"}
-      </Button>
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <button
+          type="button"
+          onClick={() => setShowNote((v) => !v)}
+          className="text-xs text-slate-500 underline underline-offset-2 hover:text-slate-300"
+        >
+          {showNote ? "Hide direction" : note.trim() ? "Edit direction" : "Add direction"}
+        </button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={isPending}
+          onClick={() =>
+            startTransition(async () => {
+              const res = await applyRevisionWithAi(revisionId, note.trim() || undefined);
+              setResult(res);
+              if (res.ok) router.refresh();
+            })
+          }
+        >
+          {isPending ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Sparkles className="h-3.5 w-3.5 text-brand-400" />
+          )}
+          {isPending ? "Applying…" : "Apply with AI"}
+        </Button>
+      </div>
+
+      {showNote && (
+        <div className="mt-2">
+          <Textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={2}
+            placeholder="Anything the AI should know — e.g. keep the tagline as it is, use the second gallery photo for the hero, don't touch the pricing."
+            className="text-xs"
+          />
+          <p className="mt-1 text-[11px] text-slate-600">
+            Your direction is followed over the customer&apos;s wording where the two disagree.
+          </p>
+        </div>
+      )}
 
       {result && (
         <div
