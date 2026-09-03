@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { vercelConfigured } from "@/lib/vercel";
 
 /**
  * The single Settings row, created on first read.
@@ -69,6 +70,18 @@ export function integrationStatus() {
       detail: has(process.env.WEBSER_DEPLOY_HOST)
         ? `Clients point their domain at ${process.env.WEBSER_DEPLOY_HOST}`
         : "Set WEBSER_DEPLOY_HOST so clients can be shown DNS records.",
+    },
+    {
+      // Split from the row above because pointing DNS at us and being able to
+      // answer for the domain are two different things. Without this, every
+      // client domain has to be added in Vercel by hand before it will load at
+      // all -- a CNAME on its own gets a failed TLS handshake.
+      key: "domainAutomation",
+      label: "Domain automation",
+      ready: vercelConfigured(),
+      detail: vercelConfigured()
+        ? "Client domains are added to the host automatically when they save one."
+        : "Set VERCEL_TOKEN and VERCEL_PROJECT_ID, or add each client domain in Vercel by hand before telling them it is live.",
     },
   ];
 }

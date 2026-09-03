@@ -8,7 +8,9 @@ import {
   deployHost,
   requiredRecords,
   checkDomainPointsToUs,
+  checkDomainServes,
 } from "@/lib/domain";
+import { attachClientDomain, vercelConfigured } from "@/lib/vercel";
 import { publishedSiteUrl } from "@/lib/host";
 import { notifyProjectStatus } from "@/lib/email";
 
@@ -84,6 +86,21 @@ export async function saveCustomDomain(token: string, formData: FormData): Promi
       requiredDnsRecords: records ?? undefined,
     },
   });
+
+  // Attach it to the host now rather than at verify time. Certificate
+  // issuance only begins once the host knows about the domain, so starting it
+  // here means the certificate is usually ready by the time DNS has spread and
+  // the client comes back to press verify.
+  if (vercelConfigured()) {
+    const attached = await attachClientDomain(domain);
+    if (!attached.ok) {
+      console.error("[domain] could not attach to host", domain, attached.detail);
+    }
+  } else {
+    console.warn(
+      `[domain] VERCEL_TOKEN not configured — ${domain} must be added to the Vercel project by hand or it will not serve.`
+    );
+  }
 
   // Only pull a live site backwards if it isn't live yet; a client adding a
   // domain to an already-published site shouldn't take that site down.
@@ -162,6 +179,29 @@ export async function verifyDomain(token: string): Promise<DomainResult> {
     });
     touch(token, project.id);
     return { ok: false, error: check.detail };
+  }
+
+  // DNS being right is not the same as the site working. Fetch the address the
+  // way a customer would before promising anything: if the certificate is not
+  // issued yet the handshake fails, and publishing at that point would hand the
+  // client an address that shows a security warning.
+  const serving = await checkDomainServes(domain);
+  if (!serving.ok) {
+    await prisma.domain.update({
+      where: { projectId: project.id },
+      data: { dnsStatus: DnsStatus.VERIFIED, sslStatus: "PENDING" },
+    });
+
+    // A domain that never attached will never come good on its own, so make
+    // sure that lands somewhere the owner will see it.
+    if (!vercelConfigured()) {
+      console.error(
+        `[domain] ${domain} points at us but is not attached to the host, and automation is off. Add it in Vercel.`
+      );
+    }
+
+    touch(token, project.id);
+    return { ok: false, error: serving.detail };
   }
 
   await prisma.domain.update({

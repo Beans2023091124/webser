@@ -98,6 +98,53 @@ export function registrarLinks(query: string) {
 }
 
 /**
+ * Does the domain actually serve the site over HTTPS?
+ *
+ * DNS resolving to us is necessary but not sufficient. The host only answers
+ * for domains attached to the project, and until one is, the TLS handshake
+ * fails and the visitor gets a browser security warning. Checking DNS alone
+ * and then telling a client "you are live" is how somebody ends up handing out
+ * a business card with a dead address on it.
+ *
+ * A 200 means our app served their site. Our own 404 page returns 404, so a
+ * domain the host answers for but we do not recognise is still not ready.
+ */
+export async function checkDomainServes(
+  domain: string
+): Promise<{ ok: boolean; detail: string }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+
+  try {
+    const res = await fetch(`https://${domain}/`, {
+      method: "GET",
+      redirect: "follow",
+      signal: controller.signal,
+      cache: "no-store",
+      headers: { "user-agent": "Webser-domain-check" },
+    });
+
+    if (res.ok) {
+      return { ok: true, detail: `${domain} is serving your site over HTTPS.` };
+    }
+    return {
+      ok: false,
+      detail: `${domain} answered with HTTP ${res.status}. The address is reaching us but is not linked to your site yet.`,
+    };
+  } catch {
+    // Almost always a failed TLS handshake, which is what a domain that has
+    // not been attached to the host looks like from outside.
+    return {
+      ok: false,
+      detail:
+        "The records look right, but the secure certificate for your address is still being issued. This usually takes a few minutes.",
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
  * Does this domain actually point at us yet?
  *
  * Checked two ways because registrars differ: a plain CNAME on www, or apex
