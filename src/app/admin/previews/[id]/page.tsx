@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Inbox, Phone, Mail, Sparkles } from "lucide-react";
+import { ArrowLeft, Inbox, Phone, Mail, Sparkles, Lock } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { Topbar } from "@/components/admin/topbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,7 +35,17 @@ export default async function PreviewDetailPage({ params }: { params: { id: stri
         action={
           <div className="flex items-center gap-2">
             <PreviewStatusBadge status={preview.status} />
-            <DeleteProspectButton action={boundDelete} />
+            {preview.isDemo ? (
+              // Deleting one of these breaks a link on the marketing page.
+              <span
+                title="Example sites are managed by scripts/seed-demos.ts"
+                className="inline-flex items-center gap-1.5 rounded-md bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-400"
+              >
+                <Lock className="h-3 w-3" /> Example site
+              </span>
+            ) : (
+              <DeleteProspectButton action={boundDelete} />
+            )}
           </div>
         }
       />

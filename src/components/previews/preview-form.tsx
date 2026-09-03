@@ -6,10 +6,12 @@ import { Plus, Trash2, ExternalLink, Copy, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { PhoneInput } from "@/components/ui/phone-input";
+import { SectionOrder } from "@/components/previews/section-order";
 import {
   HEADING_FONT_OPTIONS,
   BODY_FONT_OPTIONS,
   LAYOUT_VARIANT_LABELS,
+  GALLERY_STYLES,
   DAYS_OF_WEEK,
   type LayoutVariant,
   type ServiceItem,
@@ -47,6 +49,8 @@ export function PreviewForm({
       : Object.fromEntries(DAYS_OF_WEEK.map((d) => [d, ""]))
   );
   const [copied, setCopied] = useState(false);
+  // Only so the hint under the picker follows the selection.
+  const [galleryStyle, setGalleryStyle] = useState(preview.galleryStyle);
 
   function handleSubmit(formData: FormData) {
     startTransition(async () => {
@@ -275,6 +279,25 @@ export function PreviewForm({
             </Select>
           </div>
         </div>
+      </section>
+
+      {/* Page order */}
+      <section>
+        <h3 className={sectionTitle}>Page Order</h3>
+        <SectionOrder
+          value={preview.sectionOrder}
+          filled={{
+            // Live state, so a badge clears as soon as content is added --
+            // without a save first, which would be confusing.
+            stats: preview.showStats,
+            services: services.some((x) => x.name.trim()),
+            about: Boolean(preview.aboutText?.trim()),
+            gallery: ((preview.gallery as string[] | null) ?? []).filter(Boolean).length > 0,
+            reviews: testimonials.some((x) => x.quote.trim()),
+            areas: ((preview.serviceAreas as string[] | null) ?? []).filter(Boolean).length > 0,
+            faq: faq.some((x) => x.question.trim()),
+          }}
+        />
       </section>
 
       {/* Hero */}
@@ -508,6 +531,25 @@ export function PreviewForm({
       {/* Gallery */}
       <section>
         <h3 className={sectionTitle}>Photo Gallery</h3>
+        <div className="mb-4">
+          <Label htmlFor="galleryStyle">Layout</Label>
+          <Select
+            id="galleryStyle"
+            name="galleryStyle"
+            defaultValue={preview.galleryStyle}
+            onChange={(e) => setGalleryStyle(e.target.value)}
+          >
+            {GALLERY_STYLES.map((g) => (
+              <option key={g.key} value={g.key}>
+                {g.label}
+              </option>
+            ))}
+          </Select>
+          <p className="mt-1.5 text-xs text-slate-500">
+            {GALLERY_STYLES.find((g) => g.key === galleryStyle)?.hint}
+          </p>
+        </div>
+
         <div className="mb-4">
           <Label htmlFor="galleryHeading">Section Heading</Label>
           <Input

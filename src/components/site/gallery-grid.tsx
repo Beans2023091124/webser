@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
+import { galleryStyleOf } from "@/lib/preview";
 
 /**
  * Gallery with a lightbox.
@@ -26,15 +27,27 @@ function tileClass(i: number, n: number) {
   return mobile;
 }
 
+/**
+ * Masonry needs uneven heights to look like masonry, and a set of photos shot
+ * on the same phone is usually all one shape. Cycling three ratios guarantees
+ * the stagger whatever gets uploaded.
+ */
+const MASONRY_RATIOS = ["aspect-[4/5]", "aspect-[4/3]", "aspect-[1/1]", "aspect-[3/4]"];
+
 export function GalleryGrid({
   urls,
   businessName,
   accent,
+  style,
 }: {
   urls: string[];
   businessName: string;
   accent: string;
+  style?: string | null;
 }) {
+  const layout = galleryStyleOf(style);
+  const [lead, setLead] = useState(0);
+  const strip = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState<number | null>(null);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -67,34 +80,161 @@ export function GalleryGrid({
     };
   }, [open, close, next, prev]);
 
+  // One photo per tile, shared by every layout.
+  const Tile = ({
+    url,
+    i,
+    className,
+    ratio,
+    onClick,
+    label,
+  }: {
+    url: string;
+    i: number;
+    className?: string;
+    ratio?: string;
+    onClick?: () => void;
+    label?: string;
+  }) => (
+    <button
+      type="button"
+      onClick={onClick ?? (() => setOpen(i))}
+      aria-label={label ?? `View photo ${i + 1} of ${n}`}
+      className={`group relative block w-full overflow-hidden rounded-lg ${ratio ?? "aspect-[4/3]"} ${className ?? ""}`}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={url}
+        alt={`${businessName} — photo ${i + 1}`}
+        loading="lazy"
+        className="h-full w-full object-cover transition-transform duration-[600ms] ease-out group-hover:scale-105"
+      />
+      {/* A subtle darkening on hover reads as "clickable" without
+          dropping a magnifier icon on top of the photo. */}
+      <span className="pointer-events-none absolute inset-0 bg-black/0 transition-colors duration-300 group-hover:bg-black/15" />
+    </button>
+  );
+
+  const scrollStrip = (dir: 1 | -1) => {
+    const el = strip.current;
+    if (!el) return;
+    el.scrollBy({ left: dir * el.clientWidth * 0.8, behavior: "smooth" });
+  };
+
   return (
     <>
-      <div className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
-        {urls.map((url, i) => (
-          <button
-            key={i}
-            type="button"
-            onClick={() => setOpen(i)}
-            aria-label={`View photo ${i + 1} of ${n}`}
-            className={`reveal group relative block w-full overflow-hidden rounded-lg aspect-[4/3] ${tileClass(
-              i,
-              n
-            )}`}
-            style={{ transitionDelay: `${Math.min(i, 6) * 55}ms` }}
+      {layout === "mosaic" && (
+        <div className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
+          {urls.map((url, i) => (
+            <div
+              key={i}
+              className={`reveal ${tileClass(i, n)}`}
+              style={{ transitionDelay: `${Math.min(i, 6) * 55}ms` }}
+            >
+              <Tile url={url} i={i} className="h-full" />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {layout === "filmstrip" && (
+        <div className="reveal relative mt-10">
+          {/*
+            Bleeds past the page gutter on phones so the strip runs off the edge
+            of the screen -- that overflow is what tells you it can be swiped.
+          */}
+          <div
+            ref={strip}
+            className="hide-scrollbar -mx-5 flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-2 sm:mx-0 sm:gap-4 sm:px-0"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={url}
-              alt={`${businessName} — photo ${i + 1}`}
-              loading="lazy"
-              className="h-full w-full object-cover transition-transform duration-[600ms] ease-out group-hover:scale-105"
-            />
-            {/* A subtle darkening on hover reads as "clickable" without
-                dropping a magnifier icon on top of the photo. */}
-            <span className="pointer-events-none absolute inset-0 bg-black/0 transition-colors duration-300 group-hover:bg-black/15" />
-          </button>
-        ))}
-      </div>
+            {urls.map((url, i) => (
+              <div
+                key={i}
+                className="w-[78%] flex-none snap-center sm:w-[46%] lg:w-[31.5%]"
+              >
+                <Tile url={url} i={i} ratio="aspect-[4/3]" />
+              </div>
+            ))}
+          </div>
+
+          {n > 2 && (
+            <div className="mt-4 hidden justify-end gap-2 sm:flex">
+              <button
+                type="button"
+                onClick={() => scrollStrip(-1)}
+                aria-label="Scroll photos left"
+                className="flex h-10 w-10 items-center justify-center rounded-full ring-1 transition-colors"
+                style={{ color: accent, ["--tw-ring-color" as string]: accent }}
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => scrollStrip(1)}
+                aria-label="Scroll photos right"
+                className="flex h-10 w-10 items-center justify-center rounded-full ring-1 transition-colors"
+                style={{ color: accent, ["--tw-ring-color" as string]: accent }}
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {layout === "masonry" && (
+        <div className="mt-10 gap-3 [column-count:2] sm:gap-4 lg:[column-count:3]">
+          {urls.map((url, i) => (
+            <div
+              key={i}
+              className="reveal mb-3 break-inside-avoid sm:mb-4"
+              style={{ transitionDelay: `${Math.min(i, 6) * 55}ms` }}
+            >
+              <Tile url={url} i={i} ratio={MASONRY_RATIOS[i % MASONRY_RATIOS.length]} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {layout === "showcase" && (
+        <div className="reveal mt-10">
+          <Tile
+            url={urls[lead]}
+            i={lead}
+            ratio="aspect-[16/10] sm:aspect-[16/9]"
+            label={`View photo ${lead + 1} of ${n} full size`}
+          />
+          {n > 1 && (
+            <div className="hide-scrollbar -mx-5 mt-3 flex gap-2.5 overflow-x-auto px-5 sm:mx-0 sm:mt-4 sm:grid sm:grid-cols-5 sm:gap-3 sm:overflow-visible sm:px-0">
+              {urls.map((url, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setLead(i)}
+                  aria-label={`Show photo ${i + 1}`}
+                  aria-current={i === lead}
+                  className={`relative aspect-[4/3] w-24 flex-none overflow-hidden rounded-md transition-opacity sm:w-auto ${
+                    i === lead ? "opacity-100" : "opacity-55 hover:opacity-85"
+                  }`}
+                  style={
+                    i === lead
+                      ? { outline: `2px solid ${accent}`, outlineOffset: "2px" }
+                      : undefined
+                  }
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={url}
+                    alt={`${businessName} — photo ${i + 1} thumbnail`}
+                    loading="lazy"
+                    className="h-full w-full object-cover"
+                  />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {open !== null && mounted && createPortal(
         <div

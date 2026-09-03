@@ -180,6 +180,7 @@ model Preview {
 
   faviconUrl       String?        // uploaded favicon, else generated from initials
   galleryHeading   String?        // overrides the per-variant default
+  galleryStyle     String         @default("mosaic") // how the photos are laid out
 
   heroHeadline     String?
   heroSubheadline  String?
@@ -201,6 +202,11 @@ model Preview {
   emergencyService Boolean        @default(false)
   freeEstimates    Boolean        @default(true)
   showStats        Boolean        @default(true)   // the "by the numbers" band
+
+  // Order the movable body sections appear in. Empty means the default
+  // order; unknown or missing keys are ignored and filled in, so adding a
+  // section later does not need a backfill.
+  sectionOrder     String[]
 
   phone            String?
   email            String?

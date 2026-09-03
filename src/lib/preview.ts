@@ -412,6 +412,93 @@ export function fillTokens(text: string, business: string, city?: string | null)
     .replaceAll("{city}", city?.trim() || "the area");
 }
 
+// How the photos are laid out. All four share the same lightbox; only the
+// arrangement of the thumbnails differs.
+export const GALLERY_STYLES = [
+  {
+    key: "mosaic",
+    label: "Tiled mosaic",
+    hint: "Mixed tile sizes that always fill the last row. Good for lots of photos.",
+  },
+  {
+    key: "filmstrip",
+    label: "Horizontal scroll",
+    hint: "A swipeable strip that runs off the edge of the screen. Good for a handful.",
+  },
+  {
+    key: "masonry",
+    label: "Staggered columns",
+    hint: "Uneven heights, like a pinboard. Good for a mix of tall and wide shots.",
+  },
+  {
+    key: "showcase",
+    label: "Feature + thumbnails",
+    hint: "One large photo with a row underneath to switch between them.",
+  },
+] as const;
+
+export type GalleryStyle = (typeof GALLERY_STYLES)[number]["key"];
+
+export const DEFAULT_GALLERY_STYLE: GalleryStyle = "mosaic";
+
+const GALLERY_STYLE_KEYS = new Set<string>(GALLERY_STYLES.map((g) => g.key));
+
+/** Anything unrecognised falls back rather than rendering nothing. */
+export function galleryStyleOf(value: string | null | undefined): GalleryStyle {
+  return value && GALLERY_STYLE_KEYS.has(value)
+    ? (value as GalleryStyle)
+    : DEFAULT_GALLERY_STYLE;
+}
+
+// The body sections a site owner can reorder. The hero, trust strip, quote
+// form and footer are deliberately not in here: the hero has to open the page,
+// and the form is the conversion point, so it stays put at the bottom.
+export const PAGE_SECTIONS = [
+  { key: "stats", label: "The numbers", hint: "Years, rating, areas served" },
+  { key: "services", label: "Services", hint: "What they do" },
+  { key: "about", label: "About", hint: "The story, plus why choose us" },
+  { key: "gallery", label: "Photos", hint: "The work, or the room" },
+  { key: "reviews", label: "Reviews", hint: "What customers said" },
+  { key: "areas", label: "Service areas", hint: "Towns covered" },
+  { key: "faq", label: "Questions", hint: "The FAQ list" },
+] as const;
+
+export type PageSectionKey = (typeof PAGE_SECTIONS)[number]["key"];
+
+export const DEFAULT_SECTION_ORDER = PAGE_SECTIONS.map((s) => s.key) as PageSectionKey[];
+
+const SECTION_KEY_SET = new Set<string>(DEFAULT_SECTION_ORDER);
+
+/**
+ * Turn a stored order into one that is always safe to render: known keys only,
+ * no duplicates, and anything missing appended in the default order. That last
+ * part means a site saved today still shows a section added next month, so new
+ * sections never need a data backfill.
+ */
+export function orderSections(stored: string[] | null | undefined): PageSectionKey[] {
+  const seen = new Set<PageSectionKey>();
+  const out: PageSectionKey[] = [];
+  for (const key of stored ?? []) {
+    if (SECTION_KEY_SET.has(key) && !seen.has(key as PageSectionKey)) {
+      seen.add(key as PageSectionKey);
+      out.push(key as PageSectionKey);
+    }
+  }
+  for (const key of DEFAULT_SECTION_ORDER) if (!seen.has(key)) out.push(key);
+  return out;
+}
+
+/** Parse the hidden field the reorder control posts. */
+export function parseSectionOrder(raw: string | undefined): PageSectionKey[] {
+  if (!raw?.trim()) return [];
+  const keys = raw.split(",").map((k) => k.trim());
+  // Only persist a real customisation; the default is stored as empty so a
+  // later change to the default order still reaches sites nobody reordered.
+  const ordered = orderSections(keys);
+  const isDefault = ordered.every((k, i) => k === DEFAULT_SECTION_ORDER[i]);
+  return isDefault ? [] : ordered;
+}
+
 // Nearby-city suggestions so generated sites carry a real service-area section.
 export const METRO_NEIGHBORS: Record<string, string[]> = {
   Olathe: ["Olathe", "Overland Park", "Lenexa", "Shawnee", "Gardner", "Spring Hill"],

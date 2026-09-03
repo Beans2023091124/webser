@@ -95,6 +95,21 @@ body {
 }
 
 /* ---------------------------------------------------------------------------
+   Scrollable photo strips
+   The strip's own overflow is the affordance -- a scrollbar under it just adds
+   noise, and on a phone there is no visible one to lose.
+   --------------------------------------------------------------------------- */
+
+.hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* ---------------------------------------------------------------------------
    FAQ accordion
    The body is wrapped in a 0fr → 1fr grid row so it can animate to its own
    height without hard-coding one. Opening animates from CSS alone; the

@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import type { Preview } from "@prisma/client";
 import { Phone, Mail, MapPin, Star, Clock, Check, ChevronDown, ShieldCheck, Award, CalendarDays, MessageSquare } from "lucide-react";
 import { prisma } from "@/lib/prisma";
@@ -12,6 +13,8 @@ import {
   DAYS_OF_WEEK,
   FORM_COPY,
   SECTION_COPY,
+  orderSections,
+  type PageSectionKey,
   type LayoutVariant,
   type ServiceItem,
   type TestimonialItem,
@@ -110,14 +113,22 @@ export async function PublicSite({ preview }: { preview: Preview }) {
   }
 
   const sectionCopy0 = SECTION_COPY[variant] ?? SECTION_COPY.trade;
+  const orderedSections = orderSections(preview.sectionOrder);
+
+  // The nav follows the page rather than a fixed list, so a reordered site
+  // reads top to bottom in both. Stats and service areas have no anchor of
+  // their own, so they simply contribute no link.
+  const navFor: Partial<Record<PageSectionKey, NavLink | false>> = {
+    services: services.length > 0 && { href: "#services", label: sectionCopy0.servicesHeading },
+    about: Boolean(preview.aboutText) && { href: "#about", label: "About" },
+    gallery: gallery.length > 0 && { href: "#gallery", label: "Photos" },
+    reviews: testimonials.length > 0 && { href: "#reviews", label: "Reviews" },
+    faq: faq.length > 0 && { href: "#faq", label: "FAQ" },
+  };
   const navLinks: NavLink[] = [
-    services.length > 0 && { href: "#services", label: sectionCopy0.servicesHeading },
-    preview.aboutText && { href: "#about", label: "About" },
-    gallery.length > 0 && { href: "#gallery", label: "Photos" },
-    testimonials.length > 0 && { href: "#reviews", label: "Reviews" },
-    faq.length > 0 && { href: "#faq", label: "FAQ" },
+    ...orderedSections.map((key) => navFor[key]).filter(Boolean),
     { href: "#quote", label: "Contact" },
-  ].filter(Boolean) as NavLink[];
+  ] as NavLink[];
 
   const formDefaults = FORM_COPY[variant] ?? FORM_COPY.trade;
   const formCopy = {
@@ -315,7 +326,7 @@ export async function PublicSite({ preview }: { preview: Preview }) {
 
   const StatsBand = preview.showStats && statItems.length >= 2 && (
     <section style={{ backgroundColor: S.page }}>
-      <div className="mx-auto max-w-6xl px-5 py-12 sm:px-8 sm:py-16">
+      <div className="mx-auto max-w-6xl px-5 py-10 sm:px-8 sm:py-12">
         <div
           className={`grid gap-y-9 rounded-2xl px-6 py-9 sm:px-10 ${
             statItems.length === 2
@@ -383,7 +394,7 @@ export async function PublicSite({ preview }: { preview: Preview }) {
 
   const ServicesSection = services.length > 0 && (
     <section id="services" className="scroll-mt-20" style={{ backgroundColor: variant === "care" ? S.page : S.alt }}>
-      <div className="mx-auto max-w-6xl px-5 py-20 sm:px-8 sm:py-24">
+      <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-20">
         <div className="max-w-2xl">
           <p className="text-sm font-semibold uppercase tracking-[0.16em]" style={{ color: primary }}>
             {sectionCopy.servicesEyebrow}
@@ -430,7 +441,7 @@ export async function PublicSite({ preview }: { preview: Preview }) {
 
   const AboutSection = preview.aboutText && (
     <section id="about" className="scroll-mt-20" style={{ backgroundColor: S.page }}>
-      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-12 px-5 py-20 sm:px-8 sm:py-24 lg:grid-cols-12 lg:gap-16">
+      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-12 px-5 py-16 sm:px-8 sm:py-20 lg:grid-cols-12 lg:gap-16">
         <div className="lg:col-span-5">
           <p className="text-sm font-semibold uppercase tracking-[0.16em]" style={{ color: primary }}>
             About us
@@ -485,21 +496,26 @@ export async function PublicSite({ preview }: { preview: Preview }) {
 
   const GallerySection = gallery.length > 0 && (
     <section id="gallery" className="scroll-mt-20" style={{ backgroundColor: S.page }}>
-      <div className="mx-auto max-w-6xl px-5 pb-20 sm:px-8 sm:pb-24">
+      <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-20">
         <h2
           className={`reveal text-3xl font-extrabold sm:text-4xl ${isCondensed ? "uppercase" : ""}`}
           style={{ ...H, color: heading }}
         >
           {preview.galleryHeading || sectionCopy.galleryHeading}
         </h2>
-        <GalleryGrid urls={gallery} businessName={preview.businessName} accent={primary} />
+        <GalleryGrid
+          urls={gallery}
+          businessName={preview.businessName}
+          accent={primary}
+          style={preview.galleryStyle}
+        />
       </div>
     </section>
   );
 
   const TestimonialsSection = testimonials.length > 0 && (
     <section id="reviews" className="scroll-mt-20" style={{ backgroundColor: shade(secondary, -0.02) }}>
-      <div className="mx-auto max-w-6xl px-5 py-20 sm:px-8 sm:py-24">
+      <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-20">
         <div className="flex flex-wrap items-end justify-between gap-6">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.16em]" style={{ color: primary }}>
@@ -554,7 +570,7 @@ export async function PublicSite({ preview }: { preview: Preview }) {
 
   const ServiceAreaSection = serviceAreas.length > 0 && (
     <section style={{ backgroundColor: S.page }}>
-      <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-20">
+      <div className="mx-auto max-w-6xl px-5 py-12 sm:px-8 sm:py-16">
         <div className="flex flex-col items-start gap-8 rounded-2xl p-8 sm:p-10 lg:flex-row lg:items-center lg:justify-between" style={{ backgroundColor: rgba(primary, 0.07) }}>
           <div className="max-w-md">
             <h2 className={`text-2xl font-extrabold sm:text-3xl ${isCondensed ? "uppercase" : ""}`} style={{ ...H, color: heading }}>
@@ -596,7 +612,7 @@ export async function PublicSite({ preview }: { preview: Preview }) {
 
   const FaqSection = faq.length > 0 && (
     <section id="faq" className="scroll-mt-20" style={{ backgroundColor: S.alt }}>
-      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-12 px-5 py-20 sm:px-8 sm:py-24 lg:grid-cols-12">
+      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-12 px-5 py-16 sm:px-8 sm:py-20 lg:grid-cols-12">
         <div className="lg:col-span-4">
           <p className="text-sm font-semibold uppercase tracking-[0.16em]" style={{ color: primary }}>
             Questions
@@ -646,7 +662,7 @@ export async function PublicSite({ preview }: { preview: Preview }) {
 
   const ContactSection = (
     <section id="quote" className="scroll-mt-20" style={{ backgroundColor: S.page }}>
-      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-12 px-5 py-20 sm:px-8 sm:py-24 lg:grid-cols-2 lg:gap-16">
+      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-12 px-5 py-16 sm:px-8 sm:py-20 lg:grid-cols-2 lg:gap-16">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.16em]" style={{ color: primary }}>
             Get in touch
@@ -1119,6 +1135,16 @@ export async function PublicSite({ preview }: { preview: Preview }) {
     </section>
   );
 
+  const bodySections: Record<PageSectionKey, React.ReactNode> = {
+    stats: StatsBand,
+    services: ServicesSection,
+    about: AboutSection,
+    gallery: GallerySection,
+    reviews: TestimonialsSection,
+    areas: ServiceAreaSection,
+    faq: FaqSection,
+  };
+
   const hero =
     variant === "hospitality"
       ? HospitalityHero
@@ -1166,13 +1192,10 @@ export async function PublicSite({ preview }: { preview: Preview }) {
       {Header}
       {hero}
       {TrustStrip}
-      {StatsBand}
-      {ServicesSection}
-      {AboutSection}
-      {GallerySection}
-      {TestimonialsSection}
-      {ServiceAreaSection}
-      {FaqSection}
+      {/* Body order is the owner's to set; the hero opens and the form closes. */}
+      {orderedSections.map((key) => (
+        <Fragment key={key}>{bodySections[key]}</Fragment>
+      ))}
       {ContactSection}
       {Footer}
       {MobileCallBar}

@@ -118,9 +118,12 @@ const faqs = [
   },
 ];
 
-// Rebuilt hourly rather than per request: the examples change rarely and a
-// marketing page shouldn't wait on a database round trip.
-export const revalidate = 3600;
+// Cached rather than rebuilt per request -- a marketing page shouldn't wait on
+// a database round trip. Five minutes, not an hour: editing a demo clears this
+// cache directly, but a change made outside the admin (the seed script writes
+// straight to the database) has no way to, and an hour of stale example cards
+// is a long time to look wrong.
+export const revalidate = 300;
 
 export default async function LandingPage() {
   const demos = await prisma.preview.findMany({

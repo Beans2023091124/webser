@@ -23,6 +23,8 @@ import {
   slugify,
   defaultHours,
   fillTokens,
+  parseSectionOrder,
+  galleryStyleOf,
   suggestServiceAreas,
   templateHero,
   templateGallery,
@@ -157,6 +159,7 @@ export async function updatePreview(previewId: string, formData: FormData) {
       textColor: parsed.textColor,
       mutedTextColor: parsed.mutedTextColor,
       galleryHeading: parsed.galleryHeading || null,
+      galleryStyle: galleryStyleOf(raw.galleryStyle),
 
       heroHeadline: parsed.heroHeadline || null,
       heroSubheadline: parsed.heroSubheadline || null,
@@ -197,6 +200,7 @@ export async function updatePreview(previewId: string, formData: FormData) {
       formRequireEmail: raw.formRequireEmail === "on",
       freeEstimates: raw.freeEstimates === "on",
       showStats: raw.showStats === "on",
+      sectionOrder: parseSectionOrder(raw.sectionOrder),
 
       phone: parsed.phone || null,
       email: parsed.email || null,
@@ -219,6 +223,9 @@ export async function updatePreview(previewId: string, formData: FormData) {
   revalidatePath(`/admin/previews/${previewId}`);
   revalidatePath("/admin/previews");
   revalidatePath(`/p/${preview.slug}`);
+  // The marketing page caches its example cards, so a demo edit has to clear it
+  // or the cards keep showing the old name and colour for up to an hour.
+  if (preview.isDemo) revalidatePath("/");
   if (preview.prospectId) revalidatePath(`/admin/prospects/${preview.prospectId}`);
 
   return preview;
@@ -226,6 +233,20 @@ export async function updatePreview(previewId: string, formData: FormData) {
 
 export async function deletePreview(previewId: string) {
   await requireAdmin();
+
+  // The example sites are linked from the marketing page, so losing one breaks
+  // a public link. The button is hidden for them, but hiding a button is not a
+  // rule -- the rule is here, where the deleting actually happens.
+  const existing = await prisma.preview.findUnique({
+    where: { id: previewId },
+    select: { isDemo: true },
+  });
+  if (existing?.isDemo) {
+    throw new Error(
+      "Example sites can't be deleted from the dashboard. Edit scripts/seed-demos.ts and re-run it."
+    );
+  }
+
   const preview = await prisma.preview.delete({ where: { id: previewId } });
   revalidatePath("/admin/previews");
   if (preview.prospectId) revalidatePath(`/admin/prospects/${preview.prospectId}`);

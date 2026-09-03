@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Menu, X, Phone } from "lucide-react";
 
@@ -35,13 +35,35 @@ export function SiteNav({
   useEffect(() => setMounted(true), []);
 
   const CLOSE_MS = 200;
+  const closeTimer = useRef<number | null>(null);
+
   const close = useCallback(() => {
+    if (closeTimer.current !== null) return; // already on the way out
     setClosing(true);
-    window.setTimeout(() => {
+    closeTimer.current = window.setTimeout(() => {
+      closeTimer.current = null;
       setOpen(false);
       setClosing(false);
     }, CLOSE_MS);
   }, []);
+
+  // Tapping again mid-close reopens rather than being swallowed, which is what
+  // an impatient double tap on a phone actually means.
+  const openMenu = useCallback(() => {
+    if (closeTimer.current !== null) {
+      window.clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+    setClosing(false);
+    setOpen(true);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
+    },
+    []
+  );
 
   // Highlight whichever section currently occupies the upper part of the screen.
   useEffect(() => {
@@ -74,12 +96,20 @@ export function SiteNav({
   useEffect(() => {
     if (!open) return;
     const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    // Deferred by a frame on purpose. Locking the body relayouts the whole
+    // document, and on a long page that is slow enough to eat the opening
+    // animation's first frames -- so the menu appeared to snap open instead of
+    // sliding. It only ever looked wrong once because the second open reuses
+    // the layout the first one just paid for.
+    const frame = requestAnimationFrame(() => {
+      document.body.style.overflow = "hidden";
+    });
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") close();
     };
     window.addEventListener("keydown", onKey);
     return () => {
+      cancelAnimationFrame(frame);
       document.body.style.overflow = prev;
       window.removeEventListener("keydown", onKey);
     };
@@ -119,7 +149,7 @@ export function SiteNav({
       */}
       <button
         type="button"
-        onClick={() => (open ? close() : setOpen(true))}
+        onClick={() => (open && !closing ? close() : openMenu())}
         aria-label={open ? "Close menu" : "Open menu"}
         aria-expanded={open}
         className={`order-last flex h-10 w-10 flex-none items-center justify-center rounded-md transition-colors lg:hidden ${
@@ -143,10 +173,17 @@ export function SiteNav({
       {/* Mobile sheet */}
       {open && mounted && createPortal(
         <div className="fixed inset-0 z-[80] lg:hidden">
+          {/*
+            No backdrop-blur here. A full-screen backdrop-filter forces the
+            compositor to build a new layer the first time it is painted, and on
+            a phone that cost lands squarely on the opening animation. At 60%
+            black it was doing nothing the opacity wasn't already doing.
+          */}
           <div
-            className={`absolute inset-0 bg-black/60 backdrop-blur-sm ${
+            className={`absolute inset-0 bg-black/60 ${
               closing ? "animate-[scrimOut_200ms_ease-out_forwards]" : "animate-[scrimIn_200ms_ease-out]"
             }`}
+            style={{ willChange: "opacity" }}
             onClick={close}
           />
           <div
@@ -155,7 +192,10 @@ export function SiteNav({
                 ? "animate-[sheetOut_200ms_cubic-bezier(0.4,0,1,1)_forwards]"
                 : "animate-[sheetIn_260ms_cubic-bezier(0.22,1,0.36,1)]"
             }`}
-            style={{ backgroundColor: dark ? "#0e0e0e" : "#ffffff" }}
+            style={{
+              backgroundColor: dark ? "#0e0e0e" : "#ffffff",
+              willChange: "opacity, transform",
+            }}
           >
             <div className="mb-5 flex items-center justify-between">
               <span
