@@ -11,6 +11,9 @@ export default async function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-black px-4">
       <div className="w-full max-w-sm">
         <div className="mb-2 flex flex-col items-center text-center">
+          {/* Fixed-size local logo on a page nobody reaches twice — next/image
+              would add a request and a layout wrapper for no gain. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/webser-full.png"
             alt="Webser — Websites that work"

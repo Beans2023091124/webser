@@ -82,6 +82,7 @@ export default async function ProspectsPage({
       />
 
       <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <div className="mx-auto max-w-6xl">
         {/* Filters */}
         <form className="mb-4 flex flex-wrap items-center gap-3" method="GET">
           <div className="relative w-full max-w-xs">
@@ -123,7 +124,7 @@ export default async function ProspectsPage({
           ))}
         </div>
 
-        <div className="overflow-x-auto rounded-lg border border-slate-800 bg-slate-900 shadow-sm">
+        <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900">
           <table className="w-full min-w-[640px] text-sm">
             <thead className="border-b border-slate-800 bg-slate-900/60 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
               <tr>
@@ -181,6 +182,7 @@ export default async function ProspectsPage({
             </tbody>
           </table>
         </div>
+      </div>
       </main>
     </>
   );

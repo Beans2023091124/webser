@@ -57,6 +57,7 @@ export default async function ProspectDetailPage({ params }: { params: { id: str
       />
 
       <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <div className="mx-auto max-w-6xl">
         <Link
           href="/admin/prospects"
           className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-300"
@@ -69,7 +70,7 @@ export default async function ProspectDetailPage({ params }: { params: { id: str
           <div className="space-y-6 lg:col-span-1">
             <Card>
               <CardHeader>
-                <CardTitle>Quick Facts</CardTitle>
+                <CardTitle>Quick facts</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
                 {prospect.phone && (
@@ -149,7 +150,7 @@ export default async function ProspectDetailPage({ params }: { params: { id: str
 
             <Card>
               <CardHeader>
-                <CardTitle>Website Previews</CardTitle>
+                <CardTitle>Website previews</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <GeneratePreviewButton
@@ -189,7 +190,7 @@ export default async function ProspectDetailPage({ params }: { params: { id: str
 
             <Card>
               <CardHeader>
-                <CardTitle>Client Project</CardTitle>
+                <CardTitle>Client project</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
                 <ConvertToProjectButton action={boundConvert} existingProjectId={prospect.project?.id} />
@@ -203,7 +204,7 @@ export default async function ProspectDetailPage({ params }: { params: { id: str
 
             <Card>
               <CardHeader>
-                <CardTitle>Log Activity</CardTitle>
+                <CardTitle>Log activity</CardTitle>
               </CardHeader>
               <CardContent>
                 <LogActivityForm prospectId={prospect.id} action={logActivity} />
@@ -212,7 +213,7 @@ export default async function ProspectDetailPage({ params }: { params: { id: str
 
             <Card>
               <CardHeader>
-                <CardTitle>Activity Timeline</CardTitle>
+                <CardTitle>Activity timeline</CardTitle>
               </CardHeader>
               <CardContent>
                 {prospect.activities.length === 0 ? (
@@ -240,7 +241,7 @@ export default async function ProspectDetailPage({ params }: { params: { id: str
           <div className="lg:col-span-2">
             <Card>
               <CardHeader>
-                <CardTitle>Business Details</CardTitle>
+                <CardTitle>Business details</CardTitle>
               </CardHeader>
               <CardContent>
                 <ProspectForm prospect={prospect} action={boundUpdate} />
@@ -248,6 +249,7 @@ export default async function ProspectDetailPage({ params }: { params: { id: str
             </Card>
           </div>
         </div>
+      </div>
       </main>
     </>
   );

@@ -2,9 +2,8 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { revalidatePath } from "next/cache";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getAdmin } from "@/lib/require-admin";
 import { EDIT_TOOL, SYSTEM_PROMPT, buildContext, sanitizeEdit, labelFields } from "@/lib/ai-editor";
 
 export type AiTurn = { role: "user" | "assistant"; content: string };
@@ -24,8 +23,8 @@ export async function editPreviewWithAi(
   instruction: string,
   history: AiTurn[] = []
 ): Promise<AiEditResult> {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) return { ok: false, message: "You need to be signed in." };
+  const admin = await getAdmin();
+  if (!admin) return { ok: false, message: "You need to be signed in." };
 
   const text = instruction.trim();
   if (!text) return { ok: false, message: "Tell me what you'd like to change." };

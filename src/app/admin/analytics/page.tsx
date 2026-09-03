@@ -3,6 +3,7 @@ import { Eye, MessageSquare, TrendingUp, Wallet, Repeat, Mail, ExternalLink } fr
 import { prisma } from "@/lib/prisma";
 import { Topbar } from "@/components/admin/topbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { StatCard } from "@/components/admin/stat-card";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -37,29 +38,6 @@ function FunnelRow({
       <div className="h-2 overflow-hidden rounded-full bg-slate-800">
         <div className="h-full rounded-full bg-brand-500" style={{ width: `${width}%` }} />
       </div>
-      {hint && <p className="mt-1 text-xs text-slate-500">{hint}</p>}
-    </div>
-  );
-}
-
-function Stat({
-  label,
-  value,
-  hint,
-  icon: Icon,
-}: {
-  label: string;
-  value: string | number;
-  hint?: string;
-  icon: React.ComponentType<{ className?: string }>;
-}) {
-  return (
-    <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-      <div className="flex items-center gap-2 text-slate-500">
-        <Icon className="h-3.5 w-3.5" />
-        <span className="text-xs font-medium uppercase tracking-wide">{label}</span>
-      </div>
-      <p className="mt-2 text-2xl font-bold text-slate-100">{value}</p>
       {hint && <p className="mt-1 text-xs text-slate-500">{hint}</p>}
     </div>
   );
@@ -126,21 +104,36 @@ export default async function AnalyticsPage() {
       <Topbar title="Analytics" description="Where the pipeline actually stands." />
 
       <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <div className="mx-auto max-w-6xl">
         {/* Money */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Stat label="Collected" value={formatCurrency(collected)} hint="All time" icon={Wallet} />
-          <Stat label="This month" value={formatCurrency(thisMonth)} hint="Paid since the 1st" icon={TrendingUp} />
-          <Stat
+          <StatCard
+            label="Collected"
+            value={formatCurrency(collected)}
+            hint="All time"
+            icon={Wallet}
+            accent="emerald"
+          />
+          <StatCard
+            label="This month"
+            value={formatCurrency(thisMonth)}
+            hint="Paid since the 1st"
+            icon={TrendingUp}
+            accent="brand"
+          />
+          <StatCard
             label="Recurring"
             value={`${formatCurrency(mrr)}/mo`}
             hint={`${activePlans.length} active plan${activePlans.length === 1 ? "" : "s"}`}
             icon={Repeat}
+            accent="violet"
           />
-          <Stat
+          <StatCard
             label="Outstanding"
             value={formatCurrency(outstanding)}
             hint="Invoiced, not yet paid"
             icon={Wallet}
+            accent="amber"
           />
         </div>
 
@@ -285,6 +278,7 @@ export default async function AnalyticsPage() {
               )}
             </CardContent>
           </Card>
+        </div>
         </div>
       </main>
     </>

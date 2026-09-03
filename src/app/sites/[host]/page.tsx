@@ -45,7 +45,7 @@ async function previewForHost(hostParam: string) {
 
 export async function generateMetadata({ params }: { params: { host: string } }) {
   const preview = await previewForHost(params.host);
-  if (!preview) return { title: "Not found" };
+  if (!preview) return { title: "Not found", robots: { index: false, follow: false } };
   return siteMetadata(preview);
 }
 

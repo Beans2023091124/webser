@@ -51,6 +51,7 @@ export default async function PreviewDetailPage({ params }: { params: { id: stri
       />
 
       <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <div className="mx-auto max-w-6xl">
         <Link
           href="/admin/previews"
           className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-300"
@@ -62,7 +63,7 @@ export default async function PreviewDetailPage({ params }: { params: { id: stri
           <div className="space-y-6 lg:col-span-2">
             <Card>
               <CardHeader>
-                <CardTitle>Edit Preview</CardTitle>
+                <CardTitle>Edit preview</CardTitle>
               </CardHeader>
               <CardContent>
                 <PreviewForm
@@ -98,7 +99,7 @@ export default async function PreviewDetailPage({ params }: { params: { id: stri
               <CardContent>
                 {preview.leads.length === 0 ? (
                   <p className="text-sm text-slate-500">
-                    No quote requests yet. Once this preview is live, anything submitted through the site's form lands
+                    No quote requests yet. Once this preview is live, anything submitted through the site&apos;s form lands
                     here — a real lead is the strongest close you can bring to a sales call.
                   </p>
                 ) : (
@@ -169,10 +170,11 @@ export default async function PreviewDetailPage({ params }: { params: { id: stri
             <div className="rounded-md border border-dashed border-slate-700 bg-slate-800/40 p-3 text-xs text-slate-400">
               Set status to <span className="font-medium text-slate-200">Active</span> before sending the link to
               your prospect. <span className="font-medium text-slate-200">Draft</span> previews are still viewable
-              via direct link, but won't show as sent in the pipeline.
+              via direct link, but won&apos;t show as sent in the pipeline.
             </div>
           </div>
         </div>
+      </div>
       </main>
     </>
   );

@@ -3,17 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { nanoid } from "nanoid";
-import { getServerSession } from "next-auth";
 import { ProjectStatus, ProspectStatus, RevisionStatus } from "@prisma/client";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/require-admin";
 import { notifyProjectStatus } from "@/lib/email";
-
-async function requireAdmin() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) throw new Error("Unauthorized");
-  return session.user as { id: string };
-}
 
 /**
  * Turns a won prospect into a client project.

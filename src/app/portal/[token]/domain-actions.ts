@@ -99,7 +99,7 @@ export async function saveCustomDomain(token: string, formData: FormData): Promi
 }
 
 /** Go live now on the free address, leaving a custom domain for later. */
-export async function useFreeAddress(token: string): Promise<DomainResult> {
+export async function claimFreeAddress(token: string): Promise<DomainResult> {
   const found = await projectForSetup(token);
   if (found.error) return { ok: false, error: found.error };
   const { project } = found;

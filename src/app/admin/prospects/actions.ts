@@ -2,17 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/require-admin";
 import { prospectSchema, activitySchema } from "@/lib/validations/prospect";
 import { ProspectStatus } from "@prisma/client";
-
-async function requireAdmin() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) throw new Error("Unauthorized");
-  return session.user as { id: string; name?: string | null };
-}
 
 function readSocials(formData: FormData) {
   const facebook = String(formData.get("facebook") ?? "");

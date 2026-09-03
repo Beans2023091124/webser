@@ -87,6 +87,7 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
       />
 
       <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <div className="mx-auto max-w-6xl">
         <Link
           href="/admin/projects"
           className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-300"
@@ -207,7 +208,7 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
 
             <Card>
               <CardHeader>
-                <CardTitle>Client Files</CardTitle>
+                <CardTitle>Client files</CardTitle>
               </CardHeader>
               <CardContent>
                 {project.files.length === 0 ? (
@@ -424,6 +425,7 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
             </Card>
           </div>
         </div>
+      </div>
       </main>
     </>
   );

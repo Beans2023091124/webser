@@ -5,7 +5,9 @@ export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElemen
   return (
     <div
       className={cn(
-        "rounded-lg border border-slate-800 bg-slate-900 shadow-sm shadow-black/20",
+        // Same shape as the marketing page cards, so the two halves of the
+        // product look like one product.
+        "rounded-xl border border-slate-800 bg-slate-900",
         className
       )}
       {...props}
@@ -21,7 +23,10 @@ export function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDiv
 
 export function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
   return (
-    <h3 className={cn("text-base font-semibold text-slate-100", className)} {...props} />
+    <h3
+      className={cn("text-base font-semibold tracking-tight text-slate-50", className)}
+      {...props}
+    />
   );
 }
 

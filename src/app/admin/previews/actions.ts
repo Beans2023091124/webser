@@ -3,9 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { nanoid } from "nanoid";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/require-admin";
 import { ProspectStatus } from "@prisma/client";
 import {
   previewSchema,
@@ -29,12 +28,6 @@ import {
   templateHero,
   templateGallery,
 } from "@/lib/preview";
-
-async function requireAdmin() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) throw new Error("Unauthorized");
-  return session.user as { id: string };
-}
 
 async function uniqueSlug(base: string) {
   const root = slugify(base) || "preview";

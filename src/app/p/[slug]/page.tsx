@@ -7,9 +7,17 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata({ params }: { params: { slug: string } }) {
   const preview = await prisma.preview.findUnique({
     where: { slug: params.slug },
-    select: { slug: true, businessName: true, heroSubheadline: true, tagline: true },
+    select: {
+      id: true,
+      slug: true,
+      businessName: true,
+      heroSubheadline: true,
+      tagline: true,
+      isDemo: true,
+      status: true,
+    },
   });
-  if (!preview) return { title: "Not found" };
+  if (!preview) return { title: "Not found", robots: { index: false, follow: false } };
   return siteMetadata(preview);
 }
 

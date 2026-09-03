@@ -1,9 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getAdmin } from "@/lib/require-admin";
 import { editPreviewWithAi } from "@/app/admin/previews/ai-actions";
 
 export type ApplyRevisionResult = {
@@ -26,8 +25,8 @@ export async function applyRevisionWithAi(
   revisionId: string,
   note?: string
 ): Promise<ApplyRevisionResult> {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) return { ok: false, message: "You need to be signed in." };
+  const admin = await getAdmin();
+  if (!admin) return { ok: false, message: "You need to be signed in." };
 
   const revision = await prisma.revision.findUnique({
     where: { id: revisionId },

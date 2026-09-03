@@ -2,9 +2,8 @@
 
 import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/require-admin";
 import { storeUpload, deleteUpload, isOwnUpload, StorageUnavailableError } from "@/lib/storage";
 
 // Matches Vercel's 4.5MB Server Action body cap, with headroom.
@@ -26,11 +25,6 @@ export type UploadResult = { ok: boolean; urls?: string[]; error?: string };
 /** Key prefix every file for this preview is stored under. */
 function keyPrefix(previewId: string) {
   return `${previewId}/`;
-}
-
-async function requireAdmin() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) throw new Error("Unauthorized");
 }
 
 /**

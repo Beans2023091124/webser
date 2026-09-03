@@ -17,16 +17,16 @@ export function Topbar({
   action?: React.ReactNode;
 }) {
   return (
-    <header className="flex min-h-16 flex-wrap items-center justify-between gap-3 border-b border-slate-800 bg-slate-950/60 py-3 pl-16 pr-4 backdrop-blur sm:py-0 lg:px-6">
+    <header className="flex min-h-16 flex-wrap items-center justify-between gap-3 border-b border-slate-900 bg-slate-950/80 py-3 pl-16 pr-4 backdrop-blur sm:py-0 lg:px-6">
       <div className="min-w-0">
-        <h1 className="truncate text-lg font-semibold text-slate-100">{title}</h1>
+        <h1 className="truncate text-lg font-bold tracking-tight text-slate-50">{title}</h1>
         {description && <p className="truncate text-sm text-slate-500">{description}</p>}
       </div>
 
       <div className="flex items-center gap-4">
         {action}
         <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-500/15 text-xs font-semibold text-brand-400">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-600/10 text-xs font-semibold text-brand-400 ring-1 ring-inset ring-brand-600/25">
             {userName ? initials(userName) : "A"}
           </div>
           <span className="hidden text-sm font-medium text-slate-300 sm:inline">{userName ?? "Admin"}</span>

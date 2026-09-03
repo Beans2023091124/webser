@@ -16,14 +16,20 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+/**
+ * Nav items used to carry a `phase` number that greyed out anything not built
+ * yet. Every phase has since shipped, so the branch was unreachable and the
+ * "Phase 4" badges were telling the owner their own finished features were
+ * still coming.
+ */
 const nav = [
-  { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard, phase: 1 },
-  { href: "/admin/prospects", label: "Prospects", icon: Users, phase: 1 },
-  { href: "/admin/previews", label: "Previews", icon: MonitorPlay, phase: 2 },
-  { href: "/admin/pricing", label: "Pricing", icon: Tags, phase: 2 },
-  { href: "/admin/projects", label: "Clients", icon: Briefcase, phase: 3 },
-  { href: "/admin/analytics", label: "Analytics", icon: BarChart3, phase: 3 },
-  { href: "/admin/settings", label: "Settings", icon: Settings, phase: 3 },
+  { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/admin/prospects", label: "Prospects", icon: Users },
+  { href: "/admin/previews", label: "Previews", icon: MonitorPlay },
+  { href: "/admin/pricing", label: "Pricing", icon: Tags },
+  { href: "/admin/projects", label: "Clients", icon: Briefcase },
+  { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
 export function Sidebar() {
@@ -53,21 +59,21 @@ export function Sidebar() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Open menu"
-        className="fixed left-3 top-3.5 z-40 rounded-md border border-slate-800 bg-slate-950/90 p-2 text-slate-300 backdrop-blur transition-colors hover:text-slate-100 lg:hidden"
+        className="fixed left-3 top-3.5 z-40 rounded-lg border border-slate-800 bg-slate-950/90 p-2 text-slate-300 backdrop-blur transition-colors hover:text-slate-100 lg:hidden"
       >
         <Menu className="h-5 w-5" />
       </button>
 
       {open && (
         <div
-          className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-40 bg-black/70 lg:hidden"
           onClick={() => setOpen(false)}
         />
       )}
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex h-screen w-64 flex-col border-r border-slate-800 bg-black transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-50 flex h-screen w-64 flex-col border-r border-slate-900 bg-slate-950 transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0",
           open ? "translate-x-0" : "-translate-x-full"
         )}
       >
@@ -79,65 +85,48 @@ export function Sidebar() {
         >
           <X className="h-5 w-5" />
         </button>
-      <div className="flex h-16 items-center gap-2.5 border-b border-slate-800/80 px-5">
-        <img src="/webser-mark.png" alt="Webser" width={28} height={28} className="rounded-sm" />
-        <span className="text-lg font-bold tracking-tight">
-          <span className="text-slate-50">Web</span>
-          <span className="text-brand-500">ser</span>
-        </span>
-      </div>
 
-      <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
-        {nav.map((item) => {
-          const isActive = pathname?.startsWith(item.href);
-          const isAvailable = item.phase <= 3;
-          const Icon = item.icon;
+        {/* Same lockup as the marketing page header. */}
+        <div className="flex h-16 flex-none items-center gap-2.5 border-b border-slate-900 px-5">
+          {/* 28px local mark — not worth the optimizer. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/webser-mark.png" alt="" width={28} height={28} aria-hidden />
+          <span className="text-lg font-bold tracking-tight text-slate-50">Webser</span>
+        </div>
 
-          const content = (
-            <>
-              <Icon className="h-4 w-4" strokeWidth={2} />
-              <span className="flex-1">{item.label}</span>
-              {!isAvailable && (
-                <span className="rounded-full bg-slate-800 px-1.5 py-0.5 text-[10px] font-medium text-slate-400">
-                  Phase {item.phase}
-                </span>
-              )}
-            </>
-          );
+        <nav className="flex-1 space-y-1 overflow-y-auto p-3">
+          {nav.map((item) => {
+            const isActive = pathname?.startsWith(item.href);
+            const Icon = item.icon;
 
-          if (!isAvailable) {
             return (
-              <div
+              <Link
                 key={item.href}
-                className="flex cursor-not-allowed items-center gap-2.5 rounded-md px-3 py-2 text-sm text-slate-600"
-                title={`Coming in Phase ${item.phase}`}
+                href={item.href}
+                aria-current={isActive ? "page" : undefined}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  isActive
+                    ? "bg-brand-600/10 text-brand-400 ring-1 ring-inset ring-brand-600/25"
+                    : "text-slate-400 hover:bg-slate-900 hover:text-slate-100"
+                )}
               >
-                {content}
-              </div>
+                <Icon className="h-4 w-4 flex-none" strokeWidth={2} />
+                {item.label}
+              </Link>
             );
-          }
+          })}
+        </nav>
 
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-brand-500/10 text-brand-400"
-                  : "text-slate-400 hover:bg-slate-900 hover:text-slate-100"
-              )}
-            >
-              {content}
-            </Link>
-          );
-        })}
-      </nav>
-
-      <div className="border-t border-slate-800/80 p-4">
-        <p className="px-1 text-[11px] leading-relaxed text-slate-600">
-          Find Business → Preview → Sell → Build → Deploy → Handoff
-        </p>
+        <div className="flex-none border-t border-slate-900 p-4">
+          <Link
+            href="/"
+            target="_blank"
+            rel="noreferrer"
+            className="block px-1 text-xs font-medium text-slate-500 transition-colors hover:text-slate-300"
+          >
+            View the public site
+          </Link>
         </div>
       </aside>
     </>

@@ -66,7 +66,7 @@ export function AiAssistant({ previewId }: { previewId: string }) {
         {entries.length === 0 && (
           <div className="space-y-3">
             <p className="text-sm text-slate-400">
-              Describe a change in plain English and I'll edit the site. I can rewrite copy, change
+              Describe a change in plain English and I&apos;ll edit the site. I can rewrite copy, change
               colors and fonts, swap the layout style, or rework the services and FAQ.
             </p>
             <div className="flex flex-wrap gap-2">

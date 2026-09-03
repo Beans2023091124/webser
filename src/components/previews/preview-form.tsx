@@ -100,7 +100,7 @@ export function PreviewForm({
 
       {/* Basic */}
       <section>
-        <h3 className={sectionTitle}>Basic Info</h3>
+        <h3 className={sectionTitle}>Basic info</h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <Label htmlFor="businessName">Business Name *</Label>
@@ -283,7 +283,7 @@ export function PreviewForm({
 
       {/* Page order */}
       <section>
-        <h3 className={sectionTitle}>Page Order</h3>
+        <h3 className={sectionTitle}>Page order</h3>
         <SectionOrder
           value={preview.sectionOrder}
           filled={{
@@ -302,7 +302,7 @@ export function PreviewForm({
 
       {/* Hero */}
       <section>
-        <h3 className={sectionTitle}>Hero Section</h3>
+        <h3 className={sectionTitle}>Hero section</h3>
         <div className="grid grid-cols-1 gap-4">
           <div>
             <Label htmlFor="heroHeadline">Headline</Label>
@@ -324,7 +324,7 @@ export function PreviewForm({
 
       {/* Trust signals */}
       <section>
-        <h3 className={sectionTitle}>Trust Signals</h3>
+        <h3 className={sectionTitle}>Trust signals</h3>
         <p className="mb-3 -mt-2 text-xs text-slate-500">
           These are what separate a real local business site from a template. Fill in what you can verify.
         </p>
@@ -530,7 +530,7 @@ export function PreviewForm({
 
       {/* Gallery */}
       <section>
-        <h3 className={sectionTitle}>Photo Gallery</h3>
+        <h3 className={sectionTitle}>Photo gallery</h3>
         <div className="mb-4">
           <Label htmlFor="galleryStyle">Layout</Label>
           <Select
@@ -631,7 +631,7 @@ export function PreviewForm({
 
       {/* Contact */}
       <section>
-        <h3 className={sectionTitle}>Contact Info</h3>
+        <h3 className={sectionTitle}>Contact info</h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <Label htmlFor="phone">Phone</Label>

@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import {
   saveCustomDomain,
-  useFreeAddress,
+  claimFreeAddress,
   verifyDomain,
   clearCustomDomain,
   type DomainResult,
@@ -394,7 +394,7 @@ export function DomainSetup({
           <button
             type="button"
             disabled={isPending}
-            onClick={() => run(() => useFreeAddress(token))}
+            onClick={() => run(() => claimFreeAddress(token))}
             className="mt-3 inline-flex items-center gap-2 rounded-lg border border-slate-700 px-5 py-2.5 text-sm font-semibold text-slate-200 transition-colors hover:bg-slate-800 disabled:opacity-60"
           >
             {isPending && <Loader2 className="h-4 w-4 animate-spin" />}

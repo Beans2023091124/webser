@@ -86,7 +86,7 @@ export function QuoteForm({
           Thanks — we got it.
         </p>
         <p className={`mt-2 text-sm ${theme.onLight ? "text-slate-600" : "text-white/70"}`}>
-          We'll get back to you shortly. If it's urgent, give us a call and we'll pick up.
+          We&apos;ll get back to you shortly. If it&apos;s urgent, give us a call and we&apos;ll pick up.
         </p>
       </div>
     );

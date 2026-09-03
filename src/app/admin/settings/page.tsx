@@ -21,6 +21,7 @@ export default async function SettingsPage() {
       <Topbar title="Settings" description="How you appear to customers, and what's connected." />
 
       <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <div className="mx-auto max-w-6xl">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="space-y-6 lg:col-span-2">
             {devPaymentsOn && (
@@ -160,6 +161,7 @@ export default async function SettingsPage() {
             </Card>
           </div>
         </div>
+      </div>
       </main>
     </>
   );

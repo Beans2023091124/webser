@@ -10,7 +10,7 @@ type Row = Preview & { prospect: Prospect | null; template: Template };
 
 function PreviewTable({ rows, showProspect }: { rows: Row[]; showProspect: boolean }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-slate-800 bg-slate-900 shadow-sm">
+    <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900">
       <table className={`w-full text-sm ${showProspect ? "min-w-[640px]" : "min-w-[560px]"}`}>
         <thead className="border-b border-slate-800 bg-slate-900/60 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
           <tr>
@@ -96,13 +96,14 @@ export default async function PreviewsPage() {
         description={`${client.length} website preview${client.length === 1 ? "" : "s"} generated`}
       />
 
-      <main className="flex-1 space-y-8 overflow-y-auto p-4 sm:p-6">
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <div className="mx-auto max-w-6xl space-y-8">
         <section>
           {demos.length > 0 && (
-            <h2 className="mb-3 text-sm font-semibold text-slate-100">Client previews</h2>
+            <h2 className="mb-4 text-lg font-bold tracking-tight text-slate-50">Client previews</h2>
           )}
           {client.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-slate-800 p-12 text-center text-slate-500">
+            <div className="rounded-xl border border-dashed border-slate-800 p-12 text-center text-slate-500">
               No previews yet. Generate one from a prospect&apos;s detail page.
             </div>
           ) : (
@@ -112,7 +113,7 @@ export default async function PreviewsPage() {
 
         {demos.length > 0 && (
           <section>
-            <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold text-slate-100">
+            <h2 className="mb-1 flex items-center gap-2 text-lg font-bold tracking-tight text-slate-50">
               Example sites
               <span className="inline-flex items-center gap-1 rounded-full bg-slate-800 px-2 py-0.5 text-[11px] font-medium text-slate-400">
                 <Lock className="h-2.5 w-2.5" /> protected
@@ -126,6 +127,7 @@ export default async function PreviewsPage() {
             <PreviewTable rows={demos} showProspect={false} />
           </section>
         )}
+      </div>
       </main>
     </>
   );

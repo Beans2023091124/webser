@@ -1,5 +1,6 @@
 import { Fragment } from "react";
-import type { Preview } from "@prisma/client";
+import type { Metadata } from "next";
+import type { Preview, PreviewStatus } from "@prisma/client";
 import { Phone, Mail, MapPin, Star, Clock, Check, ChevronDown, ShieldCheck, Award, CalendarDays, MessageSquare } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { ServiceIcon } from "@/components/site/service-icon";
@@ -9,6 +10,7 @@ import { GalleryGrid } from "@/components/site/gallery-grid";
 import { SiteNav, type NavLink } from "@/components/site/site-nav";
 import { FaqAccordion } from "@/components/site/faq-accordion";
 import { shade, rgba, readableOn, isLight, surfaces } from "@/lib/color";
+import { publishedSiteUrl } from "@/lib/host";
 import {
   DAYS_OF_WEEK,
   FORM_COPY,
@@ -32,19 +34,63 @@ import {
  * from the other.
  */
 
-/** Shared <head> for both routes so a custom domain gets the same title and icon. */
-export function siteMetadata(preview: {
+/**
+ * Shared <head> for both routes so a custom domain gets the same title and icon.
+ *
+ * Also decides whether this site belongs in a search index at all, which is not
+ * a detail we can leave to the default:
+ *
+ *   - Demos are invented businesses. Ranking "Ridgeline Plumbing Olathe" in
+ *     Google would put a fake company in front of somebody looking for a real
+ *     plumber.
+ *   - A draft is work shown to a prospect who has not agreed to anything. It
+ *     should not be discoverable under their name before they have said yes.
+ *   - The same site answers on /p/<slug>, <slug>.webser.org and the client's
+ *     own domain. Three indexable copies of one site compete with each other,
+ *     so the canonical always points at the domain the client actually owns.
+ */
+export async function siteMetadata(preview: {
+  id: string;
   slug: string;
   businessName: string;
   tagline: string | null;
   heroSubheadline: string | null;
-}) {
+  isDemo: boolean;
+  status: PreviewStatus;
+}): Promise<Metadata> {
+  const project = await prisma.project.findFirst({
+    where: { previewId: preview.id },
+    select: { domain: { select: { domainName: true, dnsStatus: true } } },
+  });
+
+  const liveDomain =
+    project?.domain?.dnsStatus === "VERIFIED" && project.domain.domainName
+      ? project.domain.domainName
+      : null;
+
+  const canonical = liveDomain ? `https://${liveDomain}` : publishedSiteUrl(preview.slug);
+  const indexable = !preview.isDemo && preview.status === "ACTIVE" && Boolean(project);
+
+  const title = `${preview.businessName}${preview.tagline ? ` — ${preview.tagline}` : ""}`;
+  const description = preview.heroSubheadline ?? undefined;
+
   return {
-    title: `${preview.businessName}${preview.tagline ? ` — ${preview.tagline}` : ""}`,
-    description: preview.heroSubheadline ?? undefined,
+    title,
+    description,
     // Absolute path: reachable on the custom domain too, since middleware
     // only rewrites the root.
     icons: { icon: [{ url: `/p/${preview.slug}/favicon`, type: "image/svg+xml" }] },
+    alternates: canonical.startsWith("http") ? { canonical } : undefined,
+    robots: indexable
+      ? { index: true, follow: true }
+      : { index: false, follow: false, nocache: true },
+    openGraph: {
+      title,
+      description,
+      type: "website",
+      siteName: preview.businessName,
+      ...(canonical.startsWith("http") ? { url: canonical } : {}),
+    },
   };
 }
 
@@ -577,7 +623,7 @@ export async function PublicSite({ preview }: { preview: Preview }) {
               Proudly serving the area
             </h2>
             <p className="mt-2.5 text-[15px] text-[color:var(--site-body)]">
-              Not sure if you're in range? Give us a call — if we can get to you, we will.
+              Not sure if you&apos;re in range? Give us a call — if we can get to you, we will.
             </p>
           </div>
           {/* A ragged wrap (5 pills then a lonely 6th) looks accidental, so past
@@ -625,7 +671,7 @@ export async function PublicSite({ preview }: { preview: Preview }) {
           </h2>
           {preview.phone && (
             <p className="mt-4 text-[15px] text-[color:var(--site-body)]">
-              Don't see yours?{" "}
+              Don&apos;t see yours?{" "}
               <a href={`tel:${preview.phone}`} className="font-semibold underline" style={{ color: primary }}>
                 Give us a call.
               </a>
