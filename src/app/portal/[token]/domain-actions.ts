@@ -10,7 +10,14 @@ import {
   checkDomainPointsToUs,
   checkDomainServes,
 } from "@/lib/domain";
-import { attachClientDomain, vercelConfigured } from "@/lib/vercel";
+import {
+  provisionDomain,
+  getDomainConfig,
+  verifyProjectDomain,
+  removeProjectDomain,
+  vercelConfigured,
+  type VerificationChallenge,
+} from "@/lib/vercel";
 import { publishedSiteUrl } from "@/lib/host";
 import { notifyProjectStatus } from "@/lib/email";
 
@@ -70,37 +77,47 @@ export async function saveCustomDomain(token: string, formData: FormData): Promi
   }
 
   const host = deployHost();
-  const records = host ? requiredRecords(domain, host) : undefined;
 
-  await prisma.domain.upsert({
-    where: { projectId: project.id },
-    create: {
-      projectId: project.id,
-      domainName: domain,
-      dnsStatus: DnsStatus.INSTRUCTIONS_SENT,
-      requiredDnsRecords: records,
-    },
-    update: {
-      domainName: domain,
-      dnsStatus: DnsStatus.INSTRUCTIONS_SENT,
-      requiredDnsRecords: records ?? undefined,
-    },
-  });
+  // Attach both names to the host before showing any records. Certificate
+  // issuance only starts once Vercel knows about the domain, so doing it here
+  // rather than at verify time means the certificate is usually ready by the
+  // time DNS has spread and the client comes back to press check.
+  let challenges: VerificationChallenge[] = [];
+  let recommendedIPv4: string[] = [];
+  let recommendedCNAME: string[] = [];
+  let blocked: string | null = null;
 
-  // Attach it to the host now rather than at verify time. Certificate
-  // issuance only begins once the host knows about the domain, so starting it
-  // here means the certificate is usually ready by the time DNS has spread and
-  // the client comes back to press verify.
   if (vercelConfigured()) {
-    const attached = await attachClientDomain(domain);
-    if (!attached.ok) {
-      console.error("[domain] could not attach to host", domain, attached.detail);
+    const [apex, www] = await Promise.all([
+      provisionDomain(domain),
+      provisionDomain(`www.${domain}`),
+    ]);
+
+    if (apex.takenElsewhere) blocked = apex.detail;
+    challenges = [...apex.challenges, ...www.challenges];
+
+    if (!apex.attached) {
+      console.error("[domain] could not attach", domain, apex.detail);
+    }
+
+    // Vercel's own view of what this domain needs. Preferred over our
+    // defaults because it comes from the platform that will serve it.
+    const config = await getDomainConfig(domain);
+    if (config.ok) {
+      recommendedIPv4 = config.data.recommendedIPv4;
+      recommendedCNAME = config.data.recommendedCNAME;
     }
   } else {
     console.warn(
-      `[domain] VERCEL_TOKEN not configured — ${domain} must be added to the Vercel project by hand or it will not serve.`
+      `[domain] VERCEL_TOKEN not configured - ${domain} must be added to the Vercel project by hand or it will not serve.`
     );
   }
+
+  if (blocked) return { ok: false, error: blocked };
+
+  const records = host
+    ? requiredRecords(domain, host, { recommendedIPv4, recommendedCNAME, challenges })
+    : undefined;
 
   // Only pull a live site backwards if it isn't live yet; a client adding a
   // domain to an already-published site shouldn't take that site down.
@@ -171,38 +188,61 @@ export async function verifyDomain(token: string): Promise<DomainResult> {
     };
   }
 
-  const check = await checkDomainPointsToUs(domain, host);
-  if (!check.ok) {
-    await prisma.domain.update({
-      where: { projectId: project.id },
-      data: { dnsStatus: DnsStatus.PENDING },
-    });
-    touch(token, project.id);
-    return { ok: false, error: check.detail };
+  // Nudge Vercel to re-check any ownership challenge the client has now added.
+  // Harmless when there was never one, and it is what turns verified:false
+  // into verified:true after they paste the TXT record in.
+  if (vercelConfigured()) {
+    await Promise.all([
+      verifyProjectDomain(domain),
+      verifyProjectDomain(`www.${domain}`),
+    ]);
   }
 
-  // DNS being right is not the same as the site working. Fetch the address the
-  // way a customer would before promising anything: if the certificate is not
-  // issued yet the handshake fails, and publishing at that point would hand the
-  // client an address that shows a security warning.
+  // Whether the address actually serves the site is the thing that matters, so
+  // it is checked first and treated as the answer. DNS lookups are only a
+  // proxy for it, and a flaky one: our host answers on a rotating pool of
+  // anycast addresses, so comparing resolved IPs can disagree with itself
+  // between two runs a minute apart. If the site loads, it works.
   const serving = await checkDomainServes(domain);
+
   if (!serving.ok) {
+    // Not serving. Work out why, most specific explanation first.
+    let reason: string | null = null;
+
+    if (vercelConfigured()) {
+      const config = await getDomainConfig(domain);
+      if (config.ok && config.data.misconfigured) {
+        reason =
+          `${domain} isn't pointing at us yet. Check the records below match exactly ` +
+          `at your registrar — they can take a little while to spread.`;
+      }
+    }
+
+    if (!reason) {
+      const dns = await checkDomainPointsToUs(domain, host);
+      reason = dns.ok ? serving.detail : dns.detail;
+    }
+
     await prisma.domain.update({
       where: { projectId: project.id },
-      data: { dnsStatus: DnsStatus.VERIFIED, sslStatus: "PENDING" },
+      data: { dnsStatus: DnsStatus.PENDING, sslStatus: "PENDING" },
     });
 
     // A domain that never attached will never come good on its own, so make
     // sure that lands somewhere the owner will see it.
     if (!vercelConfigured()) {
       console.error(
-        `[domain] ${domain} points at us but is not attached to the host, and automation is off. Add it in Vercel.`
+        `[domain] ${domain} is not attached to the host and automation is off. Add it in Vercel.`
       );
     }
 
     touch(token, project.id);
-    return { ok: false, error: serving.detail };
+    return { ok: false, error: reason };
   }
+
+  // Publish at whichever address actually answers. A site reachable only on
+  // www is still a live site, and the client can add the root record later.
+  const liveUrl = serving.apexOk ? `https://${domain}` : `https://www.${domain}`;
 
   await prisma.domain.update({
     where: { projectId: project.id },
@@ -214,13 +254,13 @@ export async function verifyDomain(token: string): Promise<DomainResult> {
   });
   await prisma.project.update({
     where: { id: project.id },
-    data: { status: ProjectStatus.LIVE, liveUrl: `https://${domain}` },
+    data: { status: ProjectStatus.LIVE, liveUrl },
   });
 
   await notifyProjectStatus(project.id, ProjectStatus.LIVE);
 
   touch(token, project.id);
-  return { ok: true, message: `${domain} is working — your site is live.` };
+  return { ok: true, message: serving.detail };
 }
 
 /** Let the client correct a typo or change their mind about the address. */
@@ -228,6 +268,16 @@ export async function clearCustomDomain(token: string): Promise<DomainResult> {
   const found = await projectForSetup(token);
   if (found.error) return { ok: false, error: found.error };
   const { project } = found;
+
+  // Detach from the host too, or the old name sits on the project forever and
+  // cannot be added anywhere else -- including by this client on a second try.
+  const previous = project.domain?.domainName;
+  if (previous && vercelConfigured()) {
+    await Promise.all([
+      removeProjectDomain(previous),
+      removeProjectDomain(`www.${previous}`),
+    ]);
+  }
 
   await prisma.domain.deleteMany({ where: { projectId: project.id } });
   if (project.status === ProjectStatus.DEPLOYING) {

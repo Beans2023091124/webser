@@ -192,10 +192,12 @@ export function DomainSetup({
         </h2>
         <p className="mt-1.5 text-[15px] leading-relaxed text-slate-400">
           One last step, and it happens at the company you bought the domain from &mdash; not
-          here. Log in there, find the DNS settings, and add these two records.
+          here. Log in there, find the DNS settings, and add{" "}
+          {records && records.length !== 2 ? `these ${records.length} records` : "these two records"}.
         </p>
 
         {records && records.length > 0 ? (
+          <>
           <div className="mt-5 overflow-hidden rounded-lg border border-slate-800">
             <div className="hidden bg-slate-950/60 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:grid sm:grid-cols-[80px_80px_1fr]">
               <span>Type</span>
@@ -227,6 +229,20 @@ export function DomainSetup({
               </div>
             ))}
           </div>
+
+            {/*
+              The @ row is the one that goes wrong. Registrars refuse it when
+              one of their own services owns the domain, and without a word of
+              explanation people assume they have done something wrong and stop.
+            */}
+            <p className="mt-3 text-xs leading-relaxed text-slate-500">
+              If your registrar refuses the <span className="font-mono text-slate-400">@</span>{" "}
+              record, it is usually because one of their own services &mdash; a parking page,
+              website builder or shop &mdash; is still attached to the domain. Remove that first
+              and the record will save. The <span className="font-mono text-slate-400">www</span>{" "}
+              record is enough to put your site live in the meantime.
+            </p>
+          </>
         ) : (
           <div className="mt-5 rounded-lg border border-slate-800 bg-slate-950/50 p-4 text-sm text-slate-400">
             We&apos;re getting the hosting ready for your site. As soon as it is, we&apos;ll email

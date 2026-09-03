@@ -9,7 +9,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { devPaymentsEnabled } from "@/lib/payments";
-import { deployHost, requiredRecords, registrarLinks } from "@/lib/domain";
+import { deployHost, requiredRecords, registrarLinks, type DnsRecord } from "@/lib/domain";
 import { DomainSetup } from "@/components/portal/domain-setup";
 import {
   CLIENT_STAGE_COPY,
@@ -93,7 +93,26 @@ export default async function PortalPage({
   // offer afterwards for anyone who published on the free address.
   const host = deployHost();
   const domainName = project.domain?.domainName ?? null;
-  const domainRecords = domainName && host ? requiredRecords(domainName, host) : null;
+  // Always recompute the A and CNAME rows rather than trusting what was stored
+  // when the domain was first saved: a row written under an older version of
+  // these instructions would otherwise be shown forever, and the apex row in
+  // particular has already changed once. Ownership challenges are the one
+  // thing only the stored copy knows, so those are carried across.
+  const storedRecords = project.domain?.requiredDnsRecords;
+  const storedChallenges = (Array.isArray(storedRecords) ? (storedRecords as DnsRecord[]) : [])
+    .filter((r) => r?.type?.toUpperCase() === "TXT")
+    .map((r) => ({
+      type: "TXT",
+      // Stored names are already relative to the zone; requiredRecords expects
+      // the full hostname, so put it back together.
+      domain: r.name === "@" ? domainName ?? "" : `${r.name}.${domainName ?? ""}`,
+      value: r.value,
+    }));
+
+  const domainRecords =
+    domainName && host
+      ? requiredRecords(domainName, host, { challenges: storedChallenges })
+      : null;
   const inDomainSetup = project.status === "APPROVED" || project.status === "DEPLOYING";
   const liveWithoutDomain =
     (project.status === "LIVE" || project.status === "MAINTENANCE") && !domainName;

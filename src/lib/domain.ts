@@ -29,6 +29,20 @@ export function deployHost(): string | null {
 }
 
 /**
+ * The address for the root of a domain.
+ *
+ * The root of a zone cannot hold a CNAME -- the DNS spec forbids it, because a
+ * CNAME cannot coexist with the SOA and NS records every zone root must have.
+ * Registrars enforce this, and the ones that appear to allow it are really
+ * offering ALIAS/ANAME under a CNAME label. Asking every client for a CNAME on
+ * "@" therefore fails outright at a good number of registrars, so the root gets
+ * an A record instead, which works everywhere.
+ */
+export function apexIp(): string {
+  return process.env.WEBSER_APEX_IP?.trim() || "76.76.21.21";
+}
+
+/**
  * Tidy whatever the client typed into a bare domain, or null if it isn't one.
  * People paste "https://www.example.com/" and mean "example.com".
  */
@@ -52,21 +66,83 @@ export function normalizeDomain(raw: string): string | null {
   return v;
 }
 
-export function requiredRecords(domain: string, host: string): DnsRecord[] {
-  return [
+export type RecordInputs = {
+  /** Apex A-record targets, straight from Vercel when we can ask it. */
+  recommendedIPv4?: string[];
+  /** www CNAME target, straight from Vercel when we can ask it. */
+  recommendedCNAME?: string[];
+  /** Ownership challenges Vercel wants before it will serve the domain. */
+  challenges?: { type: string; domain: string; value: string }[];
+};
+
+/**
+ * The records a client has to add at their registrar.
+ *
+ * Two of them always, plus any ownership challenge:
+ *
+ *   A     @    -> Vercel's apex address
+ *   CNAME www  -> our deploy host
+ *   TXT   _vercel -> only when the domain is already known to Vercel and
+ *                    ownership has to be proven
+ *
+ * The root gets an A record rather than a CNAME because the DNS spec forbids a
+ * CNAME at a zone apex -- it cannot coexist with the SOA and NS records every
+ * zone must have. Registrars enforce that, so asking for one fails outright at
+ * a good number of them.
+ *
+ * Values come from Vercel's own domain-config endpoint when the API is
+ * reachable, so they stay right if Vercel ever changes them, and fall back to
+ * their published defaults when it isn't.
+ */
+export function requiredRecords(
+  domain: string,
+  host: string,
+  inputs: RecordInputs = {}
+): DnsRecord[] {
+  const apex = inputs.recommendedIPv4?.[0] || apexIp();
+  const cname = inputs.recommendedCNAME?.[0] || host;
+
+  const records: DnsRecord[] = [
+    {
+      type: "A",
+      name: "@",
+      value: apex,
+      note: `Makes ${domain} work on its own. Registrars won't accept a CNAME here.`,
+    },
     {
       type: "CNAME",
       name: "www",
-      value: host,
+      value: cname,
       note: `Makes www.${domain} work.`,
     },
-    {
-      type: "CNAME",
-      name: "@",
-      value: host,
-      note: "Some registrars call this ALIAS, ANAME, or “root”.",
-    },
   ];
+
+  // De-duplicated: Vercel returns the same challenge against both the apex and
+  // www, and showing a client the identical TXT row twice invites them to
+  // create a second, conflicting record.
+  const seen = new Set<string>();
+  for (const c of inputs.challenges ?? []) {
+    if (c.type?.toUpperCase() !== "TXT") continue;
+    const key = `${c.domain}|${c.value}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    // Registrars want the name relative to the zone, not the full hostname.
+    const name = c.domain.endsWith(`.${domain}`)
+      ? c.domain.slice(0, -(domain.length + 1))
+      : c.domain === domain
+      ? "@"
+      : c.domain;
+
+    records.push({
+      type: "TXT",
+      name,
+      value: c.value,
+      note: "Proves the domain is yours. It can be removed once your site is live.",
+    });
+  }
+
+  return records;
 }
 
 /**
@@ -109,39 +185,70 @@ export function registrarLinks(query: string) {
  * A 200 means our app served their site. Our own 404 page returns 404, so a
  * domain the host answers for but we do not recognise is still not ready.
  */
-export async function checkDomainServes(
-  domain: string
-): Promise<{ ok: boolean; detail: string }> {
+/** One HTTPS fetch, true only if it answered with a success status. */
+async function serves(hostname: string): Promise<boolean> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 8000);
-
   try {
-    const res = await fetch(`https://${domain}/`, {
+    const res = await fetch(`https://${hostname}/`, {
       method: "GET",
       redirect: "follow",
       signal: controller.signal,
       cache: "no-store",
       headers: { "user-agent": "Webser-domain-check" },
     });
-
-    if (res.ok) {
-      return { ok: true, detail: `${domain} is serving your site over HTTPS.` };
-    }
-    return {
-      ok: false,
-      detail: `${domain} answered with HTTP ${res.status}. The address is reaching us but is not linked to your site yet.`,
-    };
+    return res.ok;
   } catch {
     // Almost always a failed TLS handshake, which is what a domain that has
     // not been attached to the host looks like from outside.
-    return {
-      ok: false,
-      detail:
-        "The records look right, but the secure certificate for your address is still being issued. This usually takes a few minutes.",
-    };
+    return false;
   } finally {
     clearTimeout(timer);
   }
+}
+
+export type ServeCheck = {
+  /** True if the site is reachable at either address. */
+  ok: boolean;
+  apexOk: boolean;
+  wwwOk: boolean;
+  detail: string;
+};
+
+/**
+ * Is the site actually reachable over HTTPS, and at which address?
+ *
+ * Both are checked because they fail independently. Plenty of registrars will
+ * not let a customer touch the root of their zone at all -- IONOS blocks it
+ * whenever one of their own services is attached to the domain -- and refusing
+ * to publish a site that is demonstrably working on www would strand somebody
+ * at the last step through no fault of theirs.
+ */
+export async function checkDomainServes(domain: string): Promise<ServeCheck> {
+  const [apexOk, wwwOk] = await Promise.all([serves(domain), serves(`www.${domain}`)]);
+
+  if (apexOk) {
+    return { ok: true, apexOk, wwwOk, detail: `${domain} is serving your site over HTTPS.` };
+  }
+
+  if (wwwOk) {
+    return {
+      ok: true,
+      apexOk,
+      wwwOk,
+      detail:
+        `www.${domain} is working. ${domain} on its own isn't yet — that's the A record ` +
+        `on "@". Your site is live either way; add it when you can.`,
+    };
+  }
+
+  return {
+    ok: false,
+    apexOk,
+    wwwOk,
+    detail:
+      "The records look right, but the secure certificate for your address is still being issued. This usually takes a few minutes.",
+  };
 }
 
 /**
@@ -171,6 +278,14 @@ export async function checkDomainPointsToUs(
     dns.resolve4(domain).catch(() => [] as string[]),
   ]);
 
+  // The A record we actually ask for on the root.
+  if (apexIps.includes(apexIp())) {
+    return { ok: true, detail: `${domain} is pointing at your site.` };
+  }
+
+  // A registrar that does support ALIAS/ANAME, or a flattened CNAME, ends up
+  // resolving to the same addresses as our host. Accept that too rather than
+  // telling someone their working setup is wrong.
   if (hostIps.length > 0 && apexIps.some((ip) => hostIps.includes(ip))) {
     return { ok: true, detail: `${domain} is pointing at your site.` };
   }
