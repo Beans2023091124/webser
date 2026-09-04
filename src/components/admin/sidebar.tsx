@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import {
   LayoutDashboard,
   Users,
+  Radar,
   MonitorPlay,
   Tags,
   Briefcase,
@@ -25,6 +26,7 @@ import { cn } from "@/lib/utils";
 const nav = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/prospects", label: "Prospects", icon: Users },
+  { href: "/admin/find", label: "Find leads", icon: Radar },
   { href: "/admin/previews", label: "Previews", icon: MonitorPlay },
   { href: "/admin/pricing", label: "Pricing", icon: Tags },
   { href: "/admin/projects", label: "Clients", icon: Briefcase },
