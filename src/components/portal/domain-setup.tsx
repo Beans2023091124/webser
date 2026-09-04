@@ -115,6 +115,16 @@ function DomainInput({
           name="domain"
           value={value}
           onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            // Submit on Enter explicitly. A single-input form is meant to do
+            // this on its own, but it was not firing here, and typing an
+            // address then pressing Enter is the obvious thing to do -- having
+            // nothing happen reads as the site being broken.
+            if (e.key === "Enter") {
+              e.preventDefault();
+              if (value.trim() && !isPending) e.currentTarget.form?.requestSubmit();
+            }
+          }}
           placeholder="mybusiness.com"
           autoComplete="off"
           spellCheck={false}

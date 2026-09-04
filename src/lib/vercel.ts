@@ -203,9 +203,8 @@ export type ProvisionResult = {
 /**
  * Attach a hostname, treating the documented failure modes correctly.
  *
- * The status codes matter here and are easy to get backwards:
- *   400 + domain_already_in_use ... already on THIS project, which is fine
- *   409 ......................... on someone else's project, which is not
+ * Neither error status means what it looks like, so both are probed rather
+ * than trusted -- see the comments inline.
  */
 export async function provisionDomain(name: string): Promise<ProvisionResult> {
   const added = await addProjectDomain(name);
@@ -222,9 +221,18 @@ export async function provisionDomain(name: string): Promise<ProvisionResult> {
     };
   }
 
-  // Already on this project: re-read it rather than treating a repeat save as
-  // a failure. Clients press save twice all the time.
-  if (added.status === 400) {
+  // Both 400 and 409 can mean "this is already yours", so neither can be read
+  // as a failure on its own:
+  //
+  //   400 - the domain is already on THIS project
+  //   409 - assigned to another project, OR already on the owner's own account
+  //         (verified or not), which is what happens to any domain that was
+  //         added through the Vercel dashboard by hand
+  //
+  // Rather than guessing from the message, ask what the state actually is. If
+  // the project can read the domain back, it is attached and everything is
+  // fine no matter which error got us here.
+  if (added.status === 400 || added.status === 409) {
     const existing = await getProjectDomain(name);
     if (existing.ok) {
       return {
@@ -237,9 +245,8 @@ export async function provisionDomain(name: string): Promise<ProvisionResult> {
     }
   }
 
-  // 409 means somebody else holds it. This is the one case that cannot be
-  // resolved by waiting, so say so plainly instead of letting the client
-  // re-check a domain that will never come good.
+  // Not readable from this project, so it really is held elsewhere. This is
+  // the one case that cannot be resolved by waiting.
   if (added.status === 409) {
     return {
       attached: false,

@@ -119,6 +119,21 @@ export async function saveCustomDomain(token: string, formData: FormData): Promi
     ? requiredRecords(domain, host, { recommendedIPv4, recommendedCNAME, challenges })
     : undefined;
 
+  await prisma.domain.upsert({
+    where: { projectId: project.id },
+    create: {
+      projectId: project.id,
+      domainName: domain,
+      dnsStatus: DnsStatus.INSTRUCTIONS_SENT,
+      requiredDnsRecords: records,
+    },
+    update: {
+      domainName: domain,
+      dnsStatus: DnsStatus.INSTRUCTIONS_SENT,
+      requiredDnsRecords: records ?? undefined,
+    },
+  });
+
   // Only pull a live site backwards if it isn't live yet; a client adding a
   // domain to an already-published site shouldn't take that site down.
   if (project.status === ProjectStatus.APPROVED) {
