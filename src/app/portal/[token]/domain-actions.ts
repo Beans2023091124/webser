@@ -79,12 +79,25 @@ export async function connectDomain(token: string, formData: FormData): Promise<
     return { ok: false, error: "That doesn't look like a web address. Try something like mybusiness.com." };
   }
 
+  // An address can only sit on one project. The customer is told what to do
+  // but not who holds it -- that would name a different customer's business to
+  // them -- so the detail goes to the log, where the owner can act on it by
+  // releasing the address from the other project.
   const claimed = await prisma.domain.findFirst({
     where: { domainName: domain, NOT: { projectId: project.id } },
-    select: { id: true },
+    select: { project: { select: { id: true, businessName: true } } },
   });
   if (claimed) {
-    return { ok: false, error: "That address is already connected to another site. Get in touch and we'll sort it out." };
+    console.warn(
+      `[domain] ${domain} requested for "${project.businessName}" but is held by ` +
+        `"${claimed.project.businessName}" (project ${claimed.project.id}). ` +
+        `Release it from that project to free the address.`
+    );
+    return {
+      ok: false,
+      error:
+        "We've already got that address set up on another site. Send us a message and we'll move it across for you.",
+    };
   }
 
   // Attach before showing records. A certificate is only issued once the host

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { storeUpload, deleteUpload, blobConfigured } from "@/lib/storage";
@@ -92,8 +93,25 @@ export async function GET(req: Request) {
         ? { attached: true, verified: r.data.verified, challenges: r.data.verification ?? [] }
         : { attached: false, status: r.status, code: r.code, detail: r.detail };
 
+    // Which project holds this address in our own database, if any. An address
+    // stuck on an abandoned project is the most common reason a client cannot
+    // connect one, and it is invisible from outside.
+    const heldBy = await prisma.domain.findFirst({
+      where: { domainName: asked },
+      select: { verifiedAt: true, lastError: true, project: { select: { id: true, businessName: true, status: true } } },
+    });
+
     domain = {
       name: asked,
+      heldBy: heldBy
+        ? {
+            project: heldBy.project.businessName,
+            projectId: heldBy.project.id,
+            status: heldBy.project.status,
+            verified: Boolean(heldBy.verifiedAt),
+            lastError: heldBy.lastError,
+          }
+        : null,
       ...(attached ? { attachAttempt: attached } : {}),
       apex: summarise(apexAttached),
       www: summarise(wwwAttached),

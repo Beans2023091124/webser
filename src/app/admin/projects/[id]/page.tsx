@@ -40,7 +40,7 @@ import {
   REVISION_STATUS_LABELS,
   REVISION_STATUS_COLORS,
 } from "@/lib/project";
-import { updateProjectDetails, addRevisionAsAdmin, deleteProject } from "../actions";
+import { updateProjectDetails, addRevisionAsAdmin, deleteProject, releaseDomain } from "../actions";
 
 export default async function ProjectDetailPage({ params }: { params: { id: string } }) {
   const project = await prisma.project.findUnique({
@@ -318,6 +318,21 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
                       Chosen by the client from their portal. Their site is already live on its
                       free address; this only changes which address it answers on.
                     </p>
+                    {/*
+                      An address can only sit on one project, so one left on an
+                      abandoned project blocks it everywhere else -- and the
+                      client on the other end only sees "already connected to
+                      another site", because naming this business to them would
+                      leak a different customer.
+                    */}
+                    <form action={releaseDomain.bind(null, project.id)}>
+                      <button
+                        type="submit"
+                        className="text-xs font-medium text-slate-500 underline underline-offset-4 transition-colors hover:text-red-400"
+                      >
+                        Release this address
+                      </button>
+                    </form>
                   </>
                 ) : (
                   <p className="text-slate-500">

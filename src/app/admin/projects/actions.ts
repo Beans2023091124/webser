@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { nanoid } from "nanoid";
 import { ProjectStatus, ProspectStatus, RevisionStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { publishedSiteUrl } from "@/lib/host";
 import { requireAdmin } from "@/lib/require-admin";
 import { notifyProjectStatus } from "@/lib/email";
 
@@ -170,6 +171,46 @@ export async function rotatePortalToken(projectId: string) {
   });
   revalidatePath(`/admin/projects/${projectId}`);
   return project.portalToken;
+}
+
+/**
+ * Release a customer's web address from their project.
+ *
+ * A domain can only be attached to one project, so an address left on an old
+ * or abandoned project blocks it from being used anywhere else -- and from the
+ * portal the client just sees "already connected to another site" with no way
+ * forward, because naming the other business to them would leak a different
+ * customer's details.
+ *
+ * The host is deliberately not told to detach: it keeps account-level
+ * ownership either way, and adding a released name back is refused as a
+ * conflict, which would leave the domain owned but unrouted.
+ */
+export async function releaseDomain(projectId: string) {
+  await requireAdmin();
+
+  const domain = await prisma.domain.findUnique({
+    where: { projectId },
+    select: { domainName: true },
+  });
+  if (!domain) return;
+
+  await prisma.domain.delete({ where: { projectId } });
+
+  // Put the site back on the address it can always answer on.
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { preview: { select: { slug: true } } },
+  });
+  if (project?.preview) {
+    await prisma.project.update({
+      where: { id: projectId },
+      data: { liveUrl: publishedSiteUrl(project.preview.slug) },
+    });
+  }
+
+  revalidatePath(`/admin/projects/${projectId}`);
+  revalidatePath("/admin/projects");
 }
 
 export async function deleteProject(projectId: string) {
