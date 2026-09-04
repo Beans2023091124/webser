@@ -136,6 +136,14 @@ export async function verifyProjectDomain(name: string): Promise<ApiResult<Proje
   );
 }
 
+/**
+ * Detach a domain from the project.
+ *
+ * Not used by the client-facing flow on purpose: the account keeps ownership
+ * of a detached name, so re-adding it is refused with a conflict and the
+ * domain ends up owned but unrouted. Kept for deliberate cleanup from the
+ * admin side, where that trade-off is understood.
+ */
 export async function removeProjectDomain(name: string): Promise<ApiResult<unknown>> {
   return call<unknown>(
     withScope(`/v9/projects/${encodeURIComponent(projectId())}/domains/${encodeURIComponent(name)}`),
@@ -255,16 +263,20 @@ export async function provisionDomain(name: string): Promise<ProvisionResult> {
     }
   }
 
-  // Not readable from this project, so it really is held elsewhere. This is
-  // the one case that cannot be resolved by waiting.
+  // Not readable from this project, so it is held somewhere we cannot reach:
+  // another project, or the account itself with no project routing it. The
+  // host's own wording distinguishes those and is far more use to whoever has
+  // to fix it than anything generic, so it is passed through rather than
+  // replaced.
   if (added.status === 409) {
     return {
       attached: false,
       needsVerification: false,
       challenges: [],
       takenElsewhere: true,
-      detail:
-        `${name} is already set up on another hosting account. It has to be released there first.`,
+      detail: added.detail
+        ? `${name} could not be attached: ${added.detail}`
+        : `${name} is registered elsewhere and has to be released before it can be used here.`,
     };
   }
 

@@ -3,7 +3,12 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { storeUpload, deleteUpload, blobConfigured } from "@/lib/storage";
 import { emailConfigured } from "@/lib/email";
-import { vercelConfigured, getProjectDomain, getDomainConfig } from "@/lib/vercel";
+import {
+  vercelConfigured,
+  getProjectDomain,
+  getDomainConfig,
+  provisionDomain,
+} from "@/lib/vercel";
 import { checkDomainServes, checkDomainPointsToUs, deployHost, normalizeDomain } from "@/lib/domain";
 
 /**
@@ -55,11 +60,24 @@ export async function GET(req: Request) {
   // /api/admin/diagnostics?domain=clientsite.com reports everything that has
   // to line up for a custom domain to work, in one place. Without this the
   // only signal is a 404 on port 80, which looks identical to bad DNS.
-  const asked = normalizeDomain(new URL(req.url).searchParams.get("domain") ?? "");
+  const params = new URL(req.url).searchParams;
+  const asked = normalizeDomain(params.get("domain") ?? "");
+  const attach = params.get("attach") === "1";
   let domain: Record<string, unknown> | undefined;
 
   if (asked) {
     const host = deployHost();
+
+    // ?attach=1 re-runs the attach for both names and reports the raw result.
+    // A domain can end up owned by the account but attached to no project --
+    // valid certificate, DEPLOYMENT_NOT_FOUND on every request -- and this is
+    // how to put it back without guessing from the outside.
+    const attached = attach
+      ? {
+          apex: await provisionDomain(asked),
+          www: await provisionDomain(`www.${asked}`),
+        }
+      : undefined;
     const [apexAttached, wwwAttached, config, serves, dns] = await Promise.all([
       vercelConfigured() ? getProjectDomain(asked) : Promise.resolve(null),
       vercelConfigured() ? getProjectDomain(`www.${asked}`) : Promise.resolve(null),
@@ -77,6 +95,7 @@ export async function GET(req: Request) {
 
     domain = {
       name: asked,
+      ...(attached ? { attachAttempt: attached } : {}),
       apex: summarise(apexAttached),
       www: summarise(wwwAttached),
       vercelConfig:

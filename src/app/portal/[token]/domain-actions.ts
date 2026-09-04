@@ -14,7 +14,6 @@ import {
   provisionDomain,
   getDomainConfig,
   verifyProjectDomain,
-  removeProjectDomain,
   vercelConfigured,
   type VerificationChallenge,
 } from "@/lib/vercel";
@@ -358,15 +357,17 @@ export async function clearCustomDomain(token: string): Promise<DomainResult> {
   if (found.error) return { ok: false, error: found.error };
   const { project } = found;
 
-  // Detach from the host too, or the old name sits on the project forever and
-  // cannot be added anywhere else -- including by this client on a second try.
-  const previous = project.domain?.domainName;
-  if (previous && vercelConfigured()) {
-    await Promise.all([
-      removeProjectDomain(previous),
-      removeProjectDomain(`www.${previous}`),
-    ]);
-  }
+  // Deliberately NOT detached from the host.
+  //
+  // Detaching looks tidy and is a trap: the host keeps account-level ownership
+  // of the name, so adding it back to the project afterwards is refused with a
+  // conflict, and the domain ends up owned but unrouted -- a valid certificate
+  // and DEPLOYMENT_NOT_FOUND on every request. A client who cleared their
+  // address and re-entered the same one could never recover.
+  //
+  // Leaving it attached costs nothing: an unused domain on the project routes
+  // nowhere until a Domain row points at it again, and re-entering the same
+  // address then works immediately.
 
   await prisma.domain.deleteMany({ where: { projectId: project.id } });
   if (project.status === ProjectStatus.DEPLOYING) {
