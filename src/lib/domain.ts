@@ -78,42 +78,43 @@ export type RecordInputs = {
 /**
  * The records a client has to add at their registrar.
  *
- * Two of them always, plus any ownership challenge:
+ *   A   @    -> Vercel's edge address
+ *   A   www  -> the same address
+ *   TXT _vercel -> only when ownership has to be proven
  *
- *   A     @    -> Vercel's apex address
- *   CNAME www  -> our deploy host
- *   TXT   _vercel -> only when the domain is already known to Vercel and
- *                    ownership has to be proven
+ * Two A records rather than the more usual "A on the root, CNAME on www",
+ * because the pair has to survive registrars that manage the two together.
+ * IONOS in particular rewrites www to match whatever you set on the root, so a
+ * CNAME there gets silently replaced by an A record minutes after the client
+ * saves it -- and the client is left thinking they did it wrong.
  *
- * The root gets an A record rather than a CNAME because the DNS spec forbids a
- * CNAME at a zone apex -- it cannot coexist with the SOA and NS records every
- * zone must have. Registrars enforce that, so asking for one fails outright at
- * a good number of them.
+ * This works because the host routes on the Host header, not on the address:
+ * the same edge IP serves the root and www, and issues a certificate for each.
+ * Verified against a live client domain, where www resolving to that address
+ * by A record returns the right site with a valid certificate.
  *
- * Values come from Vercel's own domain-config endpoint when the API is
- * reachable, so they stay right if Vercel ever changes them, and fall back to
- * their published defaults when it isn't.
+ * The root cannot be a CNAME in any case -- the DNS spec forbids one at a zone
+ * apex, since it cannot coexist with the SOA and NS records every zone has.
  */
 export function requiredRecords(
   domain: string,
   host: string,
   inputs: RecordInputs = {}
 ): DnsRecord[] {
-  const apex = inputs.recommendedIPv4?.[0] || apexIp();
-  const cname = inputs.recommendedCNAME?.[0] || host;
+  const target = inputs.recommendedIPv4?.[0] || apexIp();
 
   const records: DnsRecord[] = [
     {
       type: "A",
       name: "@",
-      value: apex,
-      note: `Makes ${domain} work on its own. Registrars won't accept a CNAME here.`,
+      value: target,
+      note: `Makes ${domain} work on its own.`,
     },
     {
-      type: "CNAME",
+      type: "A",
       name: "www",
-      value: cname,
-      note: `Makes www.${domain} work.`,
+      value: target,
+      note: `Makes www.${domain} work. Same address as the row above — if your registrar fills this in for you, leave it.`,
     },
   ];
 
