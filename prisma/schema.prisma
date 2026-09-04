@@ -425,45 +425,30 @@ model FileUpload {
 // Domain
 // ---------------------------------------------------------------------------
 
-enum DnsStatus {
-  NOT_STARTED
-  INSTRUCTIONS_SENT
-  PENDING
-  VERIFIED
-  ERROR
-}
-
-enum SslStatus {
-  PENDING
-  ACTIVE
-  ERROR
-}
-
-enum DeploymentStatus {
-  NOT_STARTED
-  BUILDING
-  DEPLOYED
-  DOMAIN_PENDING
-  LIVE
-  ERROR
-}
-
+// A customer's own web address.
+//
+// A row exists only because someone asked for that domain; the site is already
+// live on its free address either way, so nothing here can stop a site working.
+//
+// There is deliberately one piece of state, not four. The previous shape
+// tracked dnsStatus, sslStatus and deploymentStatus separately and they drifted
+// out of agreement constantly -- a domain could read VERIFIED and ACTIVE while
+// the address showed a certificate warning. The only question that matters is
+// whether the address actually serves the site, which is checked directly, so
+// verifiedAt records when that last succeeded and lastError says why it didn't.
 model Domain {
-  id                 String            @id @default(cuid())
-  projectId          String            @unique
-  project            Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id            String    @id @default(cuid())
+  projectId     String    @unique
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  domainName         String?
-  registrar          String?
-  dnsStatus          DnsStatus         @default(NOT_STARTED)
-  requiredDnsRecords Json?             // [{ type, name, value }] shown to the client
-  hostingProvider    String            @default("Cloudflare Pages")
-  sslStatus          SslStatus         @default(PENDING)
-  deploymentStatus   DeploymentStatus  @default(NOT_STARTED)
-  deploymentUrl      String?           // the *.pages.dev URL before custom domain attaches
+  domainName    String
 
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
+  verifiedAt    DateTime? // when the domain was last confirmed to serve the site
+  lastCheckedAt DateTime?
+  lastError     String?   // why the last check failed, kept for the owner
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 }
 
 // ---------------------------------------------------------------------------

@@ -9,14 +9,8 @@ import {
 import { prisma } from "@/lib/prisma";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { devPaymentsEnabled } from "@/lib/payments";
-import {
-  deployHost,
-  requiredRecords,
-  registrarLinks,
-  storedRecordsUsable,
-  type DnsRecord,
-} from "@/lib/domain";
-import { vercelConfigured, getDomainConfig } from "@/lib/vercel";
+import { requiredRecords, registrarLinks } from "@/lib/domain";
+import { publishedSiteUrl } from "@/lib/host";
 import { DomainSetup } from "@/components/portal/domain-setup";
 import {
   CLIENT_STAGE_COPY,
@@ -89,7 +83,13 @@ export default async function PortalPage({
   const canReview = project.status === "FINAL_REVIEW" || project.status === "REVISION_REQUESTED";
   const askForChanges = revisionPrompt(project.status);
   const awaitingInfo = project.status === "INFORMATION_NEEDED";
-  const previewUrl = project.preview ? `/p/${project.preview.slug}` : null;
+  // The address the site is actually published on. The /p/ path is only the
+  // fallback for a project with no preview yet; a published site has its free
+  // subdomain recorded on the project, and the domain card has to show the same
+  // address the customer sees everywhere else.
+  const previewUrl = project.preview
+    ? project.liveUrl || publishedSiteUrl(project.preview.slug)
+    : null;
   const planActive = project.maintenance?.status === "ACTIVE";
   const showDevTools = devPaymentsEnabled();
 
@@ -98,45 +98,23 @@ export default async function PortalPage({
 
   // Domain setup: the last step before a site can go live, and a standing
   // offer afterwards for anyone who published on the free address.
-  const host = deployHost();
+  // The site is already live by the time any of this shows, so there is one
+  // card and it is always the same one -- an optional upgrade, never a step
+  // somebody is stuck in.
   const domainName = project.domain?.domainName ?? null;
-  // Stored records are preferred: they were built from the host's own
-  // recommendations for this specific domain, including the per-project www
-  // target that cannot be derived from anything local. They are validated
-  // first, because they can outlive the code that wrote them -- and a bad row
-  // shown to a customer is worse than a generic one.
-  //
-  // When they fail that check, ask the host again rather than falling straight
-  // back to the built-in defaults, so the client still gets the right values
-  // instead of ones that merely work.
-  const stored = project.domain?.requiredDnsRecords;
-  let domainRecords: DnsRecord[] | null = null;
-
-  if (storedRecordsUsable(stored)) {
-    domainRecords = stored;
-  } else if (domainName && host) {
-    const config = vercelConfigured() ? await getDomainConfig(domainName) : null;
-    domainRecords = requiredRecords(domainName, host, {
-      recommendedIPv4: config?.ok ? config.data.recommendedIPv4 : undefined,
-    });
-  }
-  const inDomainSetup = project.status === "APPROVED" || project.status === "DEPLOYING";
-  const liveWithoutDomain =
-    (project.status === "LIVE" || project.status === "MAINTENANCE") && !domainName;
-  const domainSuggestion = `${project.businessName
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "")}.com`;
+  const domainConnected = Boolean(project.domain?.verifiedAt);
+  const domainRecords = domainName ? requiredRecords(domainName) : [];
+  const domainSuggestion = `${project.businessName.toLowerCase().replace(/[^a-z0-9]+/g, "")}.com`;
   const registrars = registrarLinks(domainSuggestion);
+  const published = project.status === "LIVE" || project.status === "MAINTENANCE";
 
-  const domainSetup = (variant: "primary" | "secondary") => (
+  const domainCard = (
     <DomainSetup
       token={params.token}
-      variant={variant}
       domainName={domainName}
-      dnsStatus={project.domain?.dnsStatus ?? null}
+      connected={domainConnected}
       records={domainRecords}
-      hostConfigured={Boolean(host)}
-      canUseFreeAddress={Boolean(previewUrl) && variant === "primary"}
+      freeUrl={previewUrl ?? ""}
       registrars={registrars}
       suggestion={domainSuggestion}
     />
@@ -260,7 +238,6 @@ export default async function PortalPage({
         )}
 
         {/* Web address — the live task once they've approved */}
-        {inDomainSetup && <Card>{domainSetup("primary")}</Card>}
 
         {/* Payment */}
         {!isPaid && project.status !== "CANCELLED" && (
@@ -298,7 +275,7 @@ export default async function PortalPage({
             token={params.token}
             canPayBuild={!isPaid}
             canStartMaintenance={isPaid && Boolean(project.monthlyPrice) && !planActive}
-            canForceLive={inDomainSetup}
+            canForceLive={false}
           />
         )}
 
@@ -366,7 +343,7 @@ export default async function PortalPage({
         )}
 
         {/* Web address — standing offer for anyone on the free address */}
-        {liveWithoutDomain && <Card>{domainSetup("secondary")}</Card>}
+        {published && previewUrl && <Card>{domainCard}</Card>}
 
         {/* Change history */}
         {project.revisions.length > 0 && (

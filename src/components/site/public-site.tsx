@@ -60,11 +60,11 @@ export async function siteMetadata(preview: {
 }): Promise<Metadata> {
   const project = await prisma.project.findFirst({
     where: { previewId: preview.id },
-    select: { domain: { select: { domainName: true, dnsStatus: true } } },
+    select: { domain: { select: { domainName: true, verifiedAt: true } } },
   });
 
   const liveDomain =
-    project?.domain?.dnsStatus === "VERIFIED" && project.domain.domainName
+    project?.domain?.verifiedAt && project.domain.domainName
       ? project.domain.domainName
       : null;
 

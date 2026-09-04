@@ -301,25 +301,22 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
                       </a>
                       <Badge
                         className={
-                          project.domain.dnsStatus === "VERIFIED"
+                          project.domain.verifiedAt
                             ? "bg-emerald-500/10 text-emerald-400 ring-emerald-500/30"
-                            : project.domain.dnsStatus === "ERROR"
-                            ? "bg-red-500/10 text-red-400 ring-red-500/30"
                             : "bg-amber-500/10 text-amber-400 ring-amber-500/30"
                         }
                       >
-                        {project.domain.dnsStatus === "VERIFIED"
-                          ? "Pointing at us"
-                          : project.domain.dnsStatus === "PENDING"
-                          ? "Waiting on DNS"
-                          : project.domain.dnsStatus === "ERROR"
-                          ? "Error"
-                          : "Records sent"}
+                        {project.domain.verifiedAt ? "Connected" : "Waiting on DNS"}
                       </Badge>
                     </div>
+                    {project.domain.lastError && !project.domain.verifiedAt && (
+                      <p className="text-xs leading-relaxed text-amber-400/80">
+                        Last check: {project.domain.lastError}
+                      </p>
+                    )}
                     <p className="text-xs text-slate-500">
-                      Chosen by the client from their portal. They reach Live themselves once the
-                      records resolve.
+                      Chosen by the client from their portal. Their site is already live on its
+                      free address; this only changes which address it answers on.
                     </p>
                   </>
                 ) : (

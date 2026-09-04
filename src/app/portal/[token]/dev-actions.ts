@@ -83,7 +83,7 @@ export async function devForceDomainLive(token: string): Promise<DevResult> {
   if (domainName) {
     await prisma.domain.update({
       where: { projectId: project.id },
-      data: { dnsStatus: "VERIFIED", sslStatus: "ACTIVE", deploymentStatus: "LIVE" },
+      data: { verifiedAt: new Date(), lastError: null },
     });
   }
 

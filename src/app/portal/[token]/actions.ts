@@ -4,6 +4,8 @@ import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
 import { ProjectStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { publishedSiteUrl } from "@/lib/host";
+import { notifyProjectStatus } from "@/lib/email";
 import { storeUpload, deleteUpload, StorageUnavailableError } from "@/lib/storage";
 
 /**
@@ -70,17 +72,38 @@ export async function approveProject(token: string): Promise<PortalResult> {
     return { ok: false, error: "This project isn't ready for approval yet." };
   }
 
+  // Publish immediately, on the address every site gets for free.
+  //
+  // Approval used to move the project to APPROVED and then wait for the client
+  // to sort out a domain before anything went live, which put a registrar --
+  // the one part of this neither of us controls -- directly in front of the
+  // finish line. A client whose registrar fought them was left with a signed
+  // off site and nothing to show for it.
+  //
+  // The site goes live now. Connecting their own address is a separate,
+  // optional step afterwards that cannot take the site down.
+  const preview = await prisma.preview.findFirst({
+    where: { id: project.previewId ?? "" },
+    select: { slug: true },
+  });
+
   await prisma.project.update({
     where: { id: project.id },
-    data: { status: ProjectStatus.APPROVED, approvedAt: new Date() },
+    data: {
+      status: ProjectStatus.LIVE,
+      approvedAt: new Date(),
+      liveUrl: preview ? publishedSiteUrl(preview.slug) : null,
+    },
   });
+
+  await notifyProjectStatus(project.id, ProjectStatus.LIVE);
 
   // Deliberately not revalidating the portal route: doing so re-renders this
   // page the instant the action returns, which unmounts the button along with
   // the confirmation it just put on screen. The client refreshes on dismiss.
   revalidatePath(`/admin/projects/${project.id}`);
   revalidatePath("/admin/projects");
-  return { ok: true, message: "Approved. Next, choose the web address for your site." };
+  return { ok: true, message: "Approved — your site is live." };
 }
 
 /**

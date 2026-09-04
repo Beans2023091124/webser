@@ -9,7 +9,7 @@ import {
   getDomainConfig,
   provisionDomain,
 } from "@/lib/vercel";
-import { checkDomainServes, checkDomainPointsToUs, deployHost, normalizeDomain } from "@/lib/domain";
+import { checkServes, explainFailure, normalizeDomain } from "@/lib/domain";
 
 /**
  * Admin-only "why isn't this working" endpoint.
@@ -66,7 +66,6 @@ export async function GET(req: Request) {
   let domain: Record<string, unknown> | undefined;
 
   if (asked) {
-    const host = deployHost();
 
     // ?attach=1 re-runs the attach for both names and reports the raw result.
     // A domain can end up owned by the account but attached to no project --
@@ -78,13 +77,13 @@ export async function GET(req: Request) {
           www: await provisionDomain(`www.${asked}`),
         }
       : undefined;
-    const [apexAttached, wwwAttached, config, serves, dns] = await Promise.all([
+    const [apexAttached, wwwAttached, config, serves] = await Promise.all([
       vercelConfigured() ? getProjectDomain(asked) : Promise.resolve(null),
       vercelConfigured() ? getProjectDomain(`www.${asked}`) : Promise.resolve(null),
       vercelConfigured() ? getDomainConfig(asked) : Promise.resolve(null),
-      checkDomainServes(asked),
-      host ? checkDomainPointsToUs(asked, host) : Promise.resolve(null),
+      checkServes(asked),
     ]);
+    const why = serves.ok ? null : await explainFailure(asked);
 
     const summarise = (r: Awaited<ReturnType<typeof getProjectDomain>> | null) =>
       r === null
@@ -104,8 +103,8 @@ export async function GET(req: Request) {
           : config.ok
           ? config.data
           : { error: config.code, detail: config.detail },
-      dnsPointsAtUs: dns ?? "no deploy host configured",
-      serving: { apexOk: serves.apexOk, wwwOk: serves.wwwOk, detail: serves.detail },
+      serving: { apexOk: serves.apexOk, wwwOk: serves.wwwOk, connected: serves.ok },
+      ...(why ? { whyNot: why } : {}),
     };
   }
 
