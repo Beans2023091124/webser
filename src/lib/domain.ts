@@ -1,4 +1,16 @@
-import { promises as dns } from "node:dns";
+import { Resolver } from "node:dns/promises";
+
+/**
+ * Public resolvers rather than whatever the host inherits.
+ *
+ * Resolvers disagree while a record is propagating -- a home router and a
+ * serverless function can return different answers for the same name minutes
+ * apart -- and a check that quietly depends on which one it got will tell a
+ * client their correct records are wrong. Cloudflare and Google both refresh
+ * quickly and are the same everywhere this runs.
+ */
+const dns = new Resolver({ timeout: 5000, tries: 2 });
+dns.setServers(["1.1.1.1", "8.8.8.8"]);
 
 /**
  * Custom domains.

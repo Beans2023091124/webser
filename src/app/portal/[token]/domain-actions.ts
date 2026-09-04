@@ -203,14 +203,63 @@ export async function verifyDomain(token: string): Promise<DomainResult> {
     };
   }
 
-  // Nudge Vercel to re-check any ownership challenge the client has now added.
-  // Harmless when there was never one, and it is what turns verified:false
-  // into verified:true after they paste the TXT record in.
+  // Re-attach before checking anything.
+  //
+  // Attaching used to happen only when the domain was first saved, which made
+  // it a single point of failure with no way back: if it failed, or the name
+  // was later detached, pressing check forever afterwards only ever verified a
+  // domain the host had never heard of. The symptom is a plain 404 on port 80
+  // and a failed TLS handshake on 443 -- indistinguishable, from the client's
+  // side, from "the records are wrong".
+  //
+  // Both calls are idempotent, so this is safe to run on every check and makes
+  // the button self-healing.
   if (vercelConfigured()) {
+    const [apexAttach, wwwAttach] = await Promise.all([
+      provisionDomain(domain),
+      provisionDomain(`www.${domain}`),
+    ]);
+
+    if (apexAttach.takenElsewhere) {
+      await prisma.domain.update({
+        where: { projectId: project.id },
+        data: { dnsStatus: DnsStatus.ERROR },
+      });
+      touch(token, project.id);
+      return { ok: false, error: apexAttach.detail };
+    }
+
+    if (!apexAttach.attached) {
+      console.error("[domain] apex not attached", domain, apexAttach.detail);
+    }
+    if (!wwwAttach.attached) {
+      console.error("[domain] www not attached", domain, wwwAttach.detail);
+    }
+
+    // Then nudge Vercel to re-check any ownership challenge the client has
+    // added since. Harmless when there never was one, and it is what turns
+    // verified:false into verified:true after they paste the TXT record in.
     await Promise.all([
       verifyProjectDomain(domain),
       verifyProjectDomain(`www.${domain}`),
     ]);
+
+    // If a challenge is still outstanding, that is the real blocker and it
+    // needs saying, because no amount of waiting will fix it on its own.
+    const outstanding = [...apexAttach.challenges, ...wwwAttach.challenges];
+    if (apexAttach.needsVerification && outstanding.length > 0) {
+      const records = requiredRecords(domain, host, { challenges: outstanding });
+      await prisma.domain.update({
+        where: { projectId: project.id },
+        data: { dnsStatus: DnsStatus.PENDING, requiredDnsRecords: records },
+      });
+      touch(token, project.id);
+      return {
+        ok: false,
+        error:
+          "One more record is needed to prove the domain is yours — it has been added to the list below.",
+      };
+    }
   }
 
   // Whether the address actually serves the site is the thing that matters, so

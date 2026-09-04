@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { storeUpload, deleteUpload, blobConfigured } from "@/lib/storage";
 import { emailConfigured } from "@/lib/email";
+import { vercelConfigured, getProjectDomain, getDomainConfig } from "@/lib/vercel";
+import { checkDomainServes, checkDomainPointsToUs, deployHost, normalizeDomain } from "@/lib/domain";
 
 /**
  * Admin-only "why isn't this working" endpoint.
@@ -17,7 +19,7 @@ import { emailConfigured } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
     return NextResponse.json({ error: "Sign in first." }, { status: 401 });
@@ -50,8 +52,47 @@ export async function GET() {
     };
   }
 
+  // /api/admin/diagnostics?domain=clientsite.com reports everything that has
+  // to line up for a custom domain to work, in one place. Without this the
+  // only signal is a 404 on port 80, which looks identical to bad DNS.
+  const asked = normalizeDomain(new URL(req.url).searchParams.get("domain") ?? "");
+  let domain: Record<string, unknown> | undefined;
+
+  if (asked) {
+    const host = deployHost();
+    const [apexAttached, wwwAttached, config, serves, dns] = await Promise.all([
+      vercelConfigured() ? getProjectDomain(asked) : Promise.resolve(null),
+      vercelConfigured() ? getProjectDomain(`www.${asked}`) : Promise.resolve(null),
+      vercelConfigured() ? getDomainConfig(asked) : Promise.resolve(null),
+      checkDomainServes(asked),
+      host ? checkDomainPointsToUs(asked, host) : Promise.resolve(null),
+    ]);
+
+    const summarise = (r: Awaited<ReturnType<typeof getProjectDomain>> | null) =>
+      r === null
+        ? "automation off"
+        : r.ok
+        ? { attached: true, verified: r.data.verified, challenges: r.data.verification ?? [] }
+        : { attached: false, status: r.status, code: r.code, detail: r.detail };
+
+    domain = {
+      name: asked,
+      apex: summarise(apexAttached),
+      www: summarise(wwwAttached),
+      vercelConfig:
+        config === null
+          ? "automation off"
+          : config.ok
+          ? config.data
+          : { error: config.code, detail: config.detail },
+      dnsPointsAtUs: dns ?? "no deploy host configured",
+      serving: { apexOk: serves.apexOk, wwwOk: serves.wwwOk, detail: serves.detail },
+    };
+  }
+
   return NextResponse.json({
-    env,
+    env: { ...env, domainAutomation: vercelConfigured() },
+    ...(domain ? { domain } : {}),
     storage,
     email: {
       configured: emailConfigured(),
