@@ -81,8 +81,6 @@ export function normalizeDomain(raw: string): string | null {
 export type RecordInputs = {
   /** Apex A-record targets, straight from Vercel when we can ask it. */
   recommendedIPv4?: string[];
-  /** www CNAME target, straight from Vercel when we can ask it. */
-  recommendedCNAME?: string[];
   /** Ownership challenges Vercel wants before it will serve the domain. */
   challenges?: { type: string; domain: string; value: string }[];
 };
@@ -90,56 +88,57 @@ export type RecordInputs = {
 /**
  * The records a client has to add at their registrar.
  *
- * These mirror what the host's own dashboard asks for, which matters for two
- * reasons: the domain shows as correctly configured there rather than sitting
- * on a red "Invalid Configuration" badge, and the owner debugging a client's
- * setup sees the same values in both places.
+ *   A   @    -> the host's edge address
+ *   A   www  -> the same address
+ *   TXT _vercel -> only when ownership has to be proven
  *
- *   A     @    -> the host's current apex address
- *   CNAME www  -> the per-project target the host issues for this domain
- *   TXT   _vercel -> only when ownership has to be proven
+ * Two A records, deliberately, even though the host's dashboard would rather
+ * see a CNAME on www.
  *
- * The www target is specific to the project and domain, not a shared name, so
- * it has to come from the API. Without the API there is no way to know it, and
- * a second A record to the apex address is used instead -- that serves the site
- * correctly, it just is not what the dashboard would prefer.
+ * Registrars manage the root and www as one unit. IONOS creates an A record
+ * for www automatically whenever you set one on the root, and adding a CNAME
+ * there afterwards makes it disable the pair -- so the two records the
+ * dashboard asks for cannot both exist at once. A client following those
+ * instructions gets a conflict warning and no working site.
  *
- * The root is always an A record. The DNS spec forbids a CNAME at a zone apex,
- * since it cannot coexist with the SOA and NS records every zone must have, and
- * registrars enforce that.
+ * A records avoid that entirely, and cost nothing: the host routes on the Host
+ * header rather than the address, so one edge address serves every name and
+ * issues a certificate for each. Verified against a live client domain, where
+ * both the root and www resolve to that single address and return 200 with
+ * valid certificates.
+ *
+ * The dashboard may flag www as not matching its preferred shape. That is a
+ * cosmetic badge on a working site, and the client being able to save the
+ * records at all matters more.
+ *
+ * The root could not be a CNAME in any case: the DNS spec forbids one at a
+ * zone apex, since it cannot coexist with the SOA and NS records every zone
+ * must have.
  */
 export function requiredRecords(
   domain: string,
   host: string,
   inputs: RecordInputs = {}
 ): DnsRecord[] {
-  const apexTarget = inputs.recommendedIPv4?.[0] || apexIp();
-  const wwwCname = inputs.recommendedCNAME?.[0];
+  const target = inputs.recommendedIPv4?.[0] || apexIp();
 
   const records: DnsRecord[] = [
     {
       type: "A",
       name: "@",
-      value: apexTarget,
+      value: target,
       note: `Makes ${domain} work on its own.`,
     },
-    wwwCname
-      ? {
-          type: "CNAME",
-          name: "www",
-          value: wwwCname,
-          note: `Makes www.${domain} work. If your registrar won't accept this, an A record pointing at ${apexTarget} works too.`,
-        }
-      : {
-          type: "A",
-          name: "www",
-          value: apexTarget,
-          note: `Makes www.${domain} work. Same address as the row above — if your registrar fills this in for you, leave it.`,
-        },
+    {
+      type: "A",
+      name: "www",
+      value: target,
+      note: `Makes www.${domain} work. Same address on purpose — if your registrar adds this row for you, leave it as it is.`,
+    },
   ];
 
-  // De-duplicated: Vercel returns the same challenge against both the apex and
-  // www, and showing a client the identical TXT row twice invites them to
+  // De-duplicated: the host returns the same challenge against both the apex
+  // and www, and showing a client the identical TXT row twice invites them to
   // create a second, conflicting record.
   const seen = new Set<string>();
   for (const c of inputs.challenges ?? []) {
@@ -187,6 +186,7 @@ export function storedRecordsUsable(records: unknown): records is DnsRecord[] {
     /^\d{1,3}(\.\d{1,3}){3}$/.test(v) && v.split(".").every((n) => Number(n) <= 255);
 
   let hasApexA = false;
+  let hasWwwA = false;
 
   for (const r of records as DnsRecord[]) {
     if (!r || typeof r.type !== "string" || typeof r.name !== "string" || typeof r.value !== "string") {
@@ -199,6 +199,7 @@ export function storedRecordsUsable(records: unknown): records is DnsRecord[] {
       case "A":
         if (!ipv4(value)) return false;
         if (r.name === "@") hasApexA = true;
+        if (r.name === "www") hasWwwA = true;
         break;
       case "CNAME":
         if (!hostname.test(value.replace(/\.$/, ""))) return false;
@@ -211,8 +212,10 @@ export function storedRecordsUsable(records: unknown): records is DnsRecord[] {
     }
   }
 
-  // The root record is the one that must always be present.
-  return hasApexA;
+  // Both rows must be A records. A stored set with a CNAME on www came from
+  // the version that followed the host's dashboard, which registrars would not
+  // accept alongside the root record; regenerate rather than keep showing it.
+  return hasApexA && hasWwwA;
 }
 
 /**

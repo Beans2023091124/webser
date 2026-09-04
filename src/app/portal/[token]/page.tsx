@@ -118,7 +118,6 @@ export default async function PortalPage({
     const config = vercelConfigured() ? await getDomainConfig(domainName) : null;
     domainRecords = requiredRecords(domainName, host, {
       recommendedIPv4: config?.ok ? config.data.recommendedIPv4 : undefined,
-      recommendedCNAME: config?.ok ? config.data.recommendedCNAME : undefined,
     });
   }
   const inDomainSetup = project.status === "APPROVED" || project.status === "DEPLOYING";

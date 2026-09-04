@@ -83,7 +83,6 @@ export async function saveCustomDomain(token: string, formData: FormData): Promi
   // time DNS has spread and the client comes back to press check.
   let challenges: VerificationChallenge[] = [];
   let recommendedIPv4: string[] = [];
-  let recommendedCNAME: string[] = [];
   let blocked: string | null = null;
 
   if (vercelConfigured()) {
@@ -104,7 +103,6 @@ export async function saveCustomDomain(token: string, formData: FormData): Promi
     const config = await getDomainConfig(domain);
     if (config.ok) {
       recommendedIPv4 = config.data.recommendedIPv4;
-      recommendedCNAME = config.data.recommendedCNAME;
     }
   } else {
     console.warn(
@@ -115,7 +113,7 @@ export async function saveCustomDomain(token: string, formData: FormData): Promi
   if (blocked) return { ok: false, error: blocked };
 
   const records = host
-    ? requiredRecords(domain, host, { recommendedIPv4, recommendedCNAME, challenges })
+    ? requiredRecords(domain, host, { recommendedIPv4, challenges })
     : undefined;
 
   await prisma.domain.upsert({
@@ -254,7 +252,6 @@ export async function verifyDomain(token: string): Promise<DomainResult> {
         data: {
           requiredDnsRecords: requiredRecords(domain, host, {
             recommendedIPv4: fresh.data.recommendedIPv4,
-            recommendedCNAME: fresh.data.recommendedCNAME,
             challenges: [...apexAttach.challenges, ...wwwAttach.challenges],
           }),
         },
@@ -271,7 +268,6 @@ export async function verifyDomain(token: string): Promise<DomainResult> {
       const records = requiredRecords(domain, host, {
         challenges: outstanding,
         recommendedIPv4: cfg.ok ? cfg.data.recommendedIPv4 : undefined,
-        recommendedCNAME: cfg.ok ? cfg.data.recommendedCNAME : undefined,
       });
       await prisma.domain.update({
         where: { projectId: project.id },
