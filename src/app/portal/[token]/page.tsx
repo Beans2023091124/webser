@@ -93,26 +93,21 @@ export default async function PortalPage({
   // offer afterwards for anyone who published on the free address.
   const host = deployHost();
   const domainName = project.domain?.domainName ?? null;
-  // Always recompute the A and CNAME rows rather than trusting what was stored
-  // when the domain was first saved: a row written under an older version of
-  // these instructions would otherwise be shown forever, and the apex row in
-  // particular has already changed once. Ownership challenges are the one
-  // thing only the stored copy knows, so those are carried across.
-  const storedRecords = project.domain?.requiredDnsRecords;
-  const storedChallenges = (Array.isArray(storedRecords) ? (storedRecords as DnsRecord[]) : [])
-    .filter((r) => r?.type?.toUpperCase() === "TXT")
-    .map((r) => ({
-      type: "TXT",
-      // Stored names are already relative to the zone; requiredRecords expects
-      // the full hostname, so put it back together.
-      domain: r.name === "@" ? domainName ?? "" : `${r.name}.${domainName ?? ""}`,
-      value: r.value,
-    }));
+  // Stored records win: they were built from the host's own recommendations
+  // for this specific domain, including the per-project www target that cannot
+  // be derived from anything local. They are rewritten on every check, so they
+  // do not go stale. Recomputing is only the fallback for a domain saved before
+  // any of that existed.
+  const stored = project.domain?.requiredDnsRecords;
+  const storedRecords = Array.isArray(stored) ? (stored as DnsRecord[]) : [];
+  const usableStored =
+    storedRecords.length > 0 && storedRecords.some((r) => r?.type === "A" && r?.name === "@");
 
-  const domainRecords =
-    domainName && host
-      ? requiredRecords(domainName, host, { challenges: storedChallenges })
-      : null;
+  const domainRecords = usableStored
+    ? storedRecords
+    : domainName && host
+    ? requiredRecords(domainName, host)
+    : null;
   const inDomainSetup = project.status === "APPROVED" || project.status === "DEPLOYING";
   const liveWithoutDomain =
     (project.status === "LIVE" || project.status === "MAINTENANCE") && !domainName;

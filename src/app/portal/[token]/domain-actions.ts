@@ -244,11 +244,36 @@ export async function verifyDomain(token: string): Promise<DomainResult> {
       verifyProjectDomain(`www.${domain}`),
     ]);
 
+    // Refresh the stored records from the host on every check. They are what
+    // the portal shows, so this keeps a client who set up months ago looking at
+    // the same values as one setting up today, and picks up any change the host
+    // makes to what it recommends.
+    const fresh = await getDomainConfig(domain);
+    if (fresh.ok) {
+      await prisma.domain.update({
+        where: { projectId: project.id },
+        data: {
+          requiredDnsRecords: requiredRecords(domain, host, {
+            recommendedIPv4: fresh.data.recommendedIPv4,
+            recommendedCNAME: fresh.data.recommendedCNAME,
+            challenges: [...apexAttach.challenges, ...wwwAttach.challenges],
+          }),
+        },
+      });
+    }
+
     // If a challenge is still outstanding, that is the real blocker and it
     // needs saying, because no amount of waiting will fix it on its own.
     const outstanding = [...apexAttach.challenges, ...wwwAttach.challenges];
     if (apexAttach.needsVerification && outstanding.length > 0) {
-      const records = requiredRecords(domain, host, { challenges: outstanding });
+      // Re-fetch the recommended values as well, or rebuilding the list here
+      // would quietly downgrade the A and CNAME rows back to the fallbacks.
+      const cfg = await getDomainConfig(domain);
+      const records = requiredRecords(domain, host, {
+        challenges: outstanding,
+        recommendedIPv4: cfg.ok ? cfg.data.recommendedIPv4 : undefined,
+        recommendedCNAME: cfg.ok ? cfg.data.recommendedCNAME : undefined,
+      });
       await prisma.domain.update({
         where: { projectId: project.id },
         data: { dnsStatus: DnsStatus.PENDING, requiredDnsRecords: records },

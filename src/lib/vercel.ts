@@ -160,31 +160,41 @@ export async function getDomainConfig(name: string): Promise<ApiResult<DomainCon
   );
   if (!res.ok) return res;
 
-  // The recommended fields have been both a string and an array historically,
-  // and CNAME entries sometimes arrive as objects. Normalise to string[].
-  const list = (v: unknown): string[] => {
-    if (typeof v === "string") return [v];
-    if (Array.isArray(v)) {
-      return v
-        .map((x) =>
+  // Vercel's recommended values need real cleaning before a client can type
+  // them into a registrar. Observed live:
+  //
+  //   recommendedIPv4:  ["216.198.79.1,64.29.17.1", "76.76.21.21"]
+  //   recommendedCNAME: ["c5f033f282ea042b.vercel-dns-017.com.", ...]
+  //
+  // The first IPv4 entry is two addresses joined by a comma, not one address,
+  // and the CNAMEs carry the trailing dot of a fully qualified name. Handing
+  // either straight to a customer produces a record their registrar rejects.
+  const flatten = (v: unknown): string[] => {
+    const raw: unknown[] = typeof v === "string" ? [v] : Array.isArray(v) ? v : [];
+    return raw
+      .flatMap((x) => {
+        const str =
           typeof x === "string"
             ? x
             : x && typeof x === "object" && "value" in x
             ? String((x as { value: unknown }).value)
-            : ""
-        )
-        .filter(Boolean);
-    }
-    return [];
+            : "";
+        return str.split(",");
+      })
+      .map((x) => x.trim().replace(/\.$/, ""))
+      .filter(Boolean);
   };
+
+  const isIpv4 = (x: string) =>
+    /^\d{1,3}(\.\d{1,3}){3}$/.test(x) && x.split(".").every((n) => Number(n) <= 255);
 
   return {
     ok: true,
     data: {
       misconfigured: Boolean(res.data.misconfigured),
       configuredBy: (res.data.configuredBy as string | null) ?? null,
-      recommendedIPv4: list(res.data.recommendedIPv4),
-      recommendedCNAME: list(res.data.recommendedCNAME),
+      recommendedIPv4: flatten(res.data.recommendedIPv4).filter(isIpv4),
+      recommendedCNAME: flatten(res.data.recommendedCNAME),
     },
   };
 }

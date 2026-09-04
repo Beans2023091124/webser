@@ -246,14 +246,13 @@ export function DomainSetup({
               explanation people assume they have done something wrong and stop.
             */}
             <p className="mt-3 text-xs leading-relaxed text-slate-500">
-              Both rows point at the same address &mdash; that is correct, not a mistake. If your
-              registrar fills in the{" "}
-              <span className="font-mono text-slate-400">www</span> row by itself when you save
-              the first one, leave it alone. If it refuses the{" "}
+              Copy each value exactly. If your registrar refuses the{" "}
               <span className="font-mono text-slate-400">@</span> row, that is usually one of
               their own services &mdash; a parking page, website builder or shop &mdash; still
-              attached to the domain; remove that and it will save. Either row on its own is
-              enough to put your site live.
+              attached to the domain; remove that and it will save. Some registrars also fill in
+              the <span className="font-mono text-slate-400">www</span> row for you when you save
+              the first one, which is fine to leave. Either row on its own is enough to put your
+              site live.
             </p>
           </>
         ) : (

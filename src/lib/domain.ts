@@ -90,44 +90,52 @@ export type RecordInputs = {
 /**
  * The records a client has to add at their registrar.
  *
- *   A   @    -> Vercel's edge address
- *   A   www  -> the same address
- *   TXT _vercel -> only when ownership has to be proven
+ * These mirror what the host's own dashboard asks for, which matters for two
+ * reasons: the domain shows as correctly configured there rather than sitting
+ * on a red "Invalid Configuration" badge, and the owner debugging a client's
+ * setup sees the same values in both places.
  *
- * Two A records rather than the more usual "A on the root, CNAME on www",
- * because the pair has to survive registrars that manage the two together.
- * IONOS in particular rewrites www to match whatever you set on the root, so a
- * CNAME there gets silently replaced by an A record minutes after the client
- * saves it -- and the client is left thinking they did it wrong.
+ *   A     @    -> the host's current apex address
+ *   CNAME www  -> the per-project target the host issues for this domain
+ *   TXT   _vercel -> only when ownership has to be proven
  *
- * This works because the host routes on the Host header, not on the address:
- * the same edge IP serves the root and www, and issues a certificate for each.
- * Verified against a live client domain, where www resolving to that address
- * by A record returns the right site with a valid certificate.
+ * The www target is specific to the project and domain, not a shared name, so
+ * it has to come from the API. Without the API there is no way to know it, and
+ * a second A record to the apex address is used instead -- that serves the site
+ * correctly, it just is not what the dashboard would prefer.
  *
- * The root cannot be a CNAME in any case -- the DNS spec forbids one at a zone
- * apex, since it cannot coexist with the SOA and NS records every zone has.
+ * The root is always an A record. The DNS spec forbids a CNAME at a zone apex,
+ * since it cannot coexist with the SOA and NS records every zone must have, and
+ * registrars enforce that.
  */
 export function requiredRecords(
   domain: string,
   host: string,
   inputs: RecordInputs = {}
 ): DnsRecord[] {
-  const target = inputs.recommendedIPv4?.[0] || apexIp();
+  const apexTarget = inputs.recommendedIPv4?.[0] || apexIp();
+  const wwwCname = inputs.recommendedCNAME?.[0];
 
   const records: DnsRecord[] = [
     {
       type: "A",
       name: "@",
-      value: target,
+      value: apexTarget,
       note: `Makes ${domain} work on its own.`,
     },
-    {
-      type: "A",
-      name: "www",
-      value: target,
-      note: `Makes www.${domain} work. Same address as the row above — if your registrar fills this in for you, leave it.`,
-    },
+    wwwCname
+      ? {
+          type: "CNAME",
+          name: "www",
+          value: wwwCname,
+          note: `Makes www.${domain} work. If your registrar won't accept this, an A record pointing at ${apexTarget} works too.`,
+        }
+      : {
+          type: "A",
+          name: "www",
+          value: apexTarget,
+          note: `Makes www.${domain} work. Same address as the row above — if your registrar fills this in for you, leave it.`,
+        },
   ];
 
   // De-duplicated: Vercel returns the same challenge against both the apex and
