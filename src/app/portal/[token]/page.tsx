@@ -9,7 +9,14 @@ import {
 import { prisma } from "@/lib/prisma";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { devPaymentsEnabled } from "@/lib/payments";
-import { deployHost, requiredRecords, registrarLinks, type DnsRecord } from "@/lib/domain";
+import {
+  deployHost,
+  requiredRecords,
+  registrarLinks,
+  storedRecordsUsable,
+  type DnsRecord,
+} from "@/lib/domain";
+import { vercelConfigured, getDomainConfig } from "@/lib/vercel";
 import { DomainSetup } from "@/components/portal/domain-setup";
 import {
   CLIENT_STAGE_COPY,
@@ -93,21 +100,27 @@ export default async function PortalPage({
   // offer afterwards for anyone who published on the free address.
   const host = deployHost();
   const domainName = project.domain?.domainName ?? null;
-  // Stored records win: they were built from the host's own recommendations
-  // for this specific domain, including the per-project www target that cannot
-  // be derived from anything local. They are rewritten on every check, so they
-  // do not go stale. Recomputing is only the fallback for a domain saved before
-  // any of that existed.
+  // Stored records are preferred: they were built from the host's own
+  // recommendations for this specific domain, including the per-project www
+  // target that cannot be derived from anything local. They are validated
+  // first, because they can outlive the code that wrote them -- and a bad row
+  // shown to a customer is worse than a generic one.
+  //
+  // When they fail that check, ask the host again rather than falling straight
+  // back to the built-in defaults, so the client still gets the right values
+  // instead of ones that merely work.
   const stored = project.domain?.requiredDnsRecords;
-  const storedRecords = Array.isArray(stored) ? (stored as DnsRecord[]) : [];
-  const usableStored =
-    storedRecords.length > 0 && storedRecords.some((r) => r?.type === "A" && r?.name === "@");
+  let domainRecords: DnsRecord[] | null = null;
 
-  const domainRecords = usableStored
-    ? storedRecords
-    : domainName && host
-    ? requiredRecords(domainName, host)
-    : null;
+  if (storedRecordsUsable(stored)) {
+    domainRecords = stored;
+  } else if (domainName && host) {
+    const config = vercelConfigured() ? await getDomainConfig(domainName) : null;
+    domainRecords = requiredRecords(domainName, host, {
+      recommendedIPv4: config?.ok ? config.data.recommendedIPv4 : undefined,
+      recommendedCNAME: config?.ok ? config.data.recommendedCNAME : undefined,
+    });
+  }
   const inDomainSetup = project.status === "APPROVED" || project.status === "DEPLOYING";
   const liveWithoutDomain =
     (project.status === "LIVE" || project.status === "MAINTENANCE") && !domainName;

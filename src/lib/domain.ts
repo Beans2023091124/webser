@@ -167,6 +167,55 @@ export function requiredRecords(
 }
 
 /**
+ * Is a stored record set still safe to show a client?
+ *
+ * Records are written when a domain is provisioned and read back later, which
+ * means they can outlive the code that produced them. One release wrote the
+ * host's recommended addresses without splitting them, so rows went out saying
+ *
+ *   A  @  ->  216.198.79.1,64.29.17.1
+ *
+ * which no registrar accepts. Stored values are therefore checked before being
+ * trusted, and anything malformed falls back to a freshly generated set rather
+ * than being shown to a customer.
+ */
+export function storedRecordsUsable(records: unknown): records is DnsRecord[] {
+  if (!Array.isArray(records) || records.length === 0) return false;
+
+  const hostname = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/i;
+  const ipv4 = (v: string) =>
+    /^\d{1,3}(\.\d{1,3}){3}$/.test(v) && v.split(".").every((n) => Number(n) <= 255);
+
+  let hasApexA = false;
+
+  for (const r of records as DnsRecord[]) {
+    if (!r || typeof r.type !== "string" || typeof r.name !== "string" || typeof r.value !== "string") {
+      return false;
+    }
+    const value = r.value.trim();
+    if (!value || value.includes(",") || /\s/.test(value)) return false;
+
+    switch (r.type.toUpperCase()) {
+      case "A":
+        if (!ipv4(value)) return false;
+        if (r.name === "@") hasApexA = true;
+        break;
+      case "CNAME":
+        if (!hostname.test(value.replace(/\.$/, ""))) return false;
+        break;
+      case "TXT":
+        break;
+      default:
+        // An unknown type means the format has moved on; regenerate instead.
+        return false;
+    }
+  }
+
+  // The root record is the one that must always be present.
+  return hasApexA;
+}
+
+/**
  * Registrar search links for a client who still needs to buy a domain.
  *
  * Only GoDaddy takes the name in the URL — IONOS and Squarespace ignore a
