@@ -7,13 +7,13 @@ import {
   Loader2,
   MapPin,
   Phone,
-  Star,
   Globe,
   GlobeLock,
   Check,
   AlertCircle,
   ExternalLink,
   Plus,
+  Building2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,20 +22,19 @@ import { CATEGORY_GROUPS, RADIUS_CHOICES } from "@/lib/places";
 import { searchBusinesses, addProspects, type Found, type SearchState } from "@/app/admin/find/actions";
 
 /**
- * Search Google for local businesses, tick the ones worth calling, add them.
+ * Search OpenStreetMap for local businesses, tick the ones worth calling, add
+ * them.
  *
- * The list defaults to businesses with no website, because that is the only
- * group this business can sell to -- a shop that already has a site is a much
- * longer conversation. The other two filters stay one click away with their
- * counts on the chip, so the default hides nothing without saying so.
+ * The list defaults to businesses with no website and hides chains, because
+ * that intersection is the only group this business can sell to. Both are one
+ * click to undo and both show their counts, so the default narrows the list
+ * without hiding that it did.
  */
 
-type Filter = "none" | "has" | "all";
+/** The action caps a single add at this, so the UI never offers more. */
+const ADD_LIMIT = 100;
 
-const RANKS = [
-  { value: "POPULARITY", label: "Most established first" },
-  { value: "DISTANCE", label: "Closest first" },
-] as const;
+type Filter = "none" | "has" | "all";
 
 function Banner({ tone, children }: { tone: "good" | "bad"; children: React.ReactNode }) {
   return (
@@ -56,15 +55,38 @@ function Banner({ tone, children }: { tone: "good" | "bad"; children: React.Reac
   );
 }
 
+function Toggle({
+  checked,
+  onChange,
+  children,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-400">
+      <input
+        type="checkbox"
+        className="h-4 w-4 accent-brand-500"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      {children}
+    </label>
+  );
+}
+
 export function BusinessFinder({ defaultWhere }: { defaultWhere: string }) {
   const [where, setWhere] = useState(defaultWhere);
   const [radius, setRadius] = useState(10);
-  const [rankBy, setRankBy] = useState<"POPULARITY" | "DISTANCE">("POPULARITY");
   const [types, setTypes] = useState<string[]>([]);
 
   const [state, setState] = useState<SearchState | null>(null);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<Filter>("none");
+  const [hideChains, setHideChains] = useState(true);
+  const [phoneOnly, setPhoneOnly] = useState(false);
   const [added, setAdded] = useState<string | null>(null);
   const [addError, setAddError] = useState<string | null>(null);
 
@@ -72,33 +94,40 @@ export function BusinessFinder({ defaultWhere }: { defaultWhere: string }) {
   const [adding, startAdd] = useTransition();
 
   // Memoised because the empty-array branch would otherwise be a fresh array
-  // on every render, re-running both derived lists below for nothing.
+  // on every render, re-running every derived list below for nothing.
   const results = useMemo(() => (state?.ok ? state.businesses : []), [state]);
+
+  // Chains and missing phone numbers are properties of the business, so they
+  // narrow the pool the website counts are then taken from. Counting them the
+  // other way round would show "40 with no website" and then list nine.
+  const pool = useMemo(
+    () => results.filter((b) => (!hideChains || !b.isChain) && (!phoneOnly || Boolean(b.phone))),
+    [results, hideChains, phoneOnly]
+  );
 
   const counts = useMemo(
     () => ({
-      all: results.length,
-      none: results.filter((b) => !b.website).length,
-      has: results.filter((b) => b.website).length,
+      all: pool.length,
+      none: pool.filter((b) => !b.website).length,
+      has: pool.filter((b) => b.website).length,
     }),
-    [results]
+    [pool]
   );
 
   const shown = useMemo(
     () =>
-      results.filter((b) =>
+      pool.filter((b) =>
         filter === "all" ? true : filter === "none" ? !b.website : Boolean(b.website)
       ),
-    [results, filter]
+    [pool, filter]
   );
 
   const selectable = shown.filter((b) => !b.inPipeline);
-  const allSelected = selectable.length > 0 && selectable.every((b) => picked.has(b.placeId));
+  const batch = selectable.slice(0, ADD_LIMIT);
+  const allSelected = batch.length > 0 && batch.every((b) => picked.has(b.placeId));
 
   function toggleType(value: string) {
-    setTypes((prev) =>
-      prev.includes(value) ? prev.filter((t) => t !== value) : [...prev, value]
-    );
+    setTypes((prev) => (prev.includes(value) ? prev.filter((t) => t !== value) : [...prev, value]));
   }
 
   function toggle(placeId: string) {
@@ -114,22 +143,16 @@ export function BusinessFinder({ defaultWhere }: { defaultWhere: string }) {
     setAdded(null);
     setAddError(null);
     startSearch(async () => {
-      const res = await searchBusinesses({ where, radiusMiles: radius, types, rankBy });
+      const res = await searchBusinesses({ where, radiusMiles: radius, types });
       setState(res);
       setPicked(new Set());
-      // A search that turns up nothing without a website is a real answer, not
-      // an empty screen -- drop to "all" so the results are visible either way.
-      if (res.ok && res.businesses.some((b) => b.website) && !res.businesses.some((b) => !b.website)) {
-        setFilter("all");
-      } else {
-        setFilter("none");
-      }
+      setFilter("none");
     });
   }
 
   function addPicked() {
     if (!state?.ok) return;
-    const chosen = results.filter((b) => picked.has(b.placeId) && !b.inPipeline);
+    const chosen = results.filter((b) => picked.has(b.placeId) && !b.inPipeline).slice(0, ADD_LIMIT);
     if (chosen.length === 0) return;
 
     setAdded(null);
@@ -143,14 +166,13 @@ export function BusinessFinder({ defaultWhere }: { defaultWhere: string }) {
         setAddError(res.error);
         return;
       }
-      // Mark them in place rather than re-running the search, which would cost
-      // another Google call to redraw a list already on screen.
+      // Marked in place rather than re-running the search, which would put a
+      // second query on a volunteer-run server to redraw a list already on
+      // screen.
       const done = new Set(chosen.map((b) => b.placeId));
       setState({
         ...state,
-        businesses: state.businesses.map((b) =>
-          done.has(b.placeId) ? { ...b, inPipeline: true } : b
-        ),
+        businesses: state.businesses.map((b) => (done.has(b.placeId) ? { ...b, inPipeline: true } : b)),
       });
       setPicked(new Set());
       setAdded(
@@ -165,15 +187,15 @@ export function BusinessFinder({ defaultWhere }: { defaultWhere: string }) {
       {/* --- Search ------------------------------------------------------- */}
       <Card>
         <CardContent className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="lg:col-span-2">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="sm:col-span-2">
               <Label htmlFor="where">Search around</Label>
               <Input
                 id="where"
                 value={where}
                 onChange={(e) => setWhere(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && !searching) runSearch();
+                  if (e.key === "Enter" && !searching && types.length > 0) runSearch();
                 }}
                 placeholder="Olathe, KS or 66062"
                 autoComplete="off"
@@ -181,28 +203,10 @@ export function BusinessFinder({ defaultWhere }: { defaultWhere: string }) {
             </div>
             <div>
               <Label htmlFor="radius">Within</Label>
-              <Select
-                id="radius"
-                value={radius}
-                onChange={(e) => setRadius(Number(e.target.value))}
-              >
+              <Select id="radius" value={radius} onChange={(e) => setRadius(Number(e.target.value))}>
                 {RADIUS_CHOICES.map((r) => (
                   <option key={r} value={r}>
                     {r} mile{r === 1 ? "" : "s"}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="rank">Order</Label>
-              <Select
-                id="rank"
-                value={rankBy}
-                onChange={(e) => setRankBy(e.target.value as "POPULARITY" | "DISTANCE")}
-              >
-                {RANKS.map((r) => (
-                  <option key={r.value} value={r.value}>
-                    {r.label}
                   </option>
                 ))}
               </Select>
@@ -254,14 +258,17 @@ export function BusinessFinder({ defaultWhere }: { defaultWhere: string }) {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-4">
             <Button onClick={runSearch} disabled={searching || types.length === 0}>
               {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
               {searching ? "Searching…" : "Search"}
             </Button>
-            <p className="text-xs text-slate-500">
-              Google returns up to 20 places per search. Narrow the radius to work a town properly.
-            </p>
+            <Toggle checked={hideChains} onChange={setHideChains}>
+              Hide chains
+            </Toggle>
+            <Toggle checked={phoneOnly} onChange={setPhoneOnly}>
+              Only with a phone number
+            </Toggle>
           </div>
 
           {state && !state.ok && <Banner tone="bad">{state.error}</Banner>}
@@ -275,14 +282,12 @@ export function BusinessFinder({ defaultWhere }: { defaultWhere: string }) {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-slate-200">
-                  {counts.all} found near {state.where}
+                  {counts.all} of {state.total} near {state.where}
                 </p>
-                {state.capped && (
-                  <p className="text-xs text-amber-400/80">
-                    That is Google&apos;s maximum for one search — there are likely more. Try a
-                    smaller radius or fewer categories.
-                  </p>
-                )}
+                <p className="text-xs text-slate-500">
+                  &ldquo;No website&rdquo; means none is recorded in OpenStreetMap — check the Maps
+                  link before you call.
+                </p>
               </div>
 
               <div className="flex flex-wrap gap-1.5">
@@ -309,15 +314,25 @@ export function BusinessFinder({ defaultWhere }: { defaultWhere: string }) {
               </div>
             </div>
 
-            {added && <Banner tone="good">{added} <Link href="/admin/prospects" className="underline underline-offset-4">Open the pipeline</Link>.</Banner>}
+            {added && (
+              <Banner tone="good">
+                {added}{" "}
+                <Link href="/admin/prospects" className="underline underline-offset-4">
+                  Open the pipeline
+                </Link>
+                .
+              </Banner>
+            )}
             {addError && <Banner tone="bad">{addError}</Banner>}
 
             {shown.length === 0 ? (
               <p className="py-8 text-center text-sm text-slate-500">
-                {counts.all === 0
-                  ? "Nothing came back. Try a wider radius or a different category."
+                {state.total === 0
+                  ? "Nothing came back. Try a wider radius or more categories."
+                  : counts.all === 0
+                  ? "Everything here is filtered out. Try turning off a filter above."
                   : filter === "none"
-                  ? "Every business here already has a website."
+                  ? "Every business here already has a website on record."
                   : "Nothing in this group."}
               </p>
             ) : (
@@ -328,15 +343,19 @@ export function BusinessFinder({ defaultWhere }: { defaultWhere: string }) {
                       type="checkbox"
                       className="h-4 w-4 accent-brand-500"
                       checked={allSelected}
-                      disabled={selectable.length === 0}
+                      disabled={batch.length === 0}
                       onChange={() =>
-                        setPicked(allSelected ? new Set() : new Set(selectable.map((b) => b.placeId)))
+                        setPicked(allSelected ? new Set() : new Set(batch.map((b) => b.placeId)))
                       }
                     />
-                    Select all {selectable.length}
+                    Select {selectable.length > ADD_LIMIT ? `first ${ADD_LIMIT}` : `all ${batch.length}`}
                   </label>
                   <Button size="sm" onClick={addPicked} disabled={adding || picked.size === 0}>
-                    {adding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                    {adding ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Plus className="h-3.5 w-3.5" />
+                    )}
                     Add {picked.size || ""} prospect{picked.size === 1 ? "" : "s"}
                   </Button>
                 </div>
@@ -353,6 +372,20 @@ export function BusinessFinder({ defaultWhere }: { defaultWhere: string }) {
                 </ul>
               </>
             )}
+
+            {/* Required by OpenStreetMap's licence wherever its data is shown. */}
+            <p className="pt-1 text-xs text-slate-600">
+              Business data ©{" "}
+              <a
+                href="https://www.openstreetmap.org/copyright"
+                target="_blank"
+                rel="noreferrer"
+                className="hover:text-slate-400"
+              >
+                OpenStreetMap contributors
+              </a>
+              , available under the Open Database Licence.
+            </p>
           </CardContent>
         </Card>
       )}
@@ -394,6 +427,12 @@ function BusinessRow({
               In pipeline
             </span>
           )}
+          {b.isChain && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-slate-800 px-2 py-0.5 text-[11px] font-medium text-slate-400">
+              <Building2 className="h-3 w-3" />
+              Chain
+            </span>
+          )}
           {!b.website && (
             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-400 ring-1 ring-inset ring-emerald-500/25">
               <GlobeLock className="h-3 w-3" />
@@ -415,13 +454,6 @@ function BusinessRow({
               <Phone className="h-3 w-3" />
               {b.phone}
             </a>
-          )}
-          {b.rating != null && (
-            <span className="inline-flex items-center gap-1">
-              <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-              {b.rating.toFixed(1)}
-              {b.reviews ? ` (${b.reviews})` : ""}
-            </span>
           )}
           {b.website && (
             <a

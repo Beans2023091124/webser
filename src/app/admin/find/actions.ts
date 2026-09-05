@@ -8,30 +8,30 @@ import { requireAdmin } from "@/lib/require-admin";
 import { geocode, findNearby, KNOWN_TYPES, type Business } from "@/lib/places";
 
 /**
- * Searching Google for local businesses, and turning the ones worth calling
- * into prospects.
+ * Searching OpenStreetMap for local businesses, and turning the ones worth
+ * calling into prospects.
  *
  * Both actions are admin-only. Nothing here is reachable from a client portal
- * or a public page -- it spends money on a Google API per call and reads the
- * whole prospect pipeline, so it stays behind the same check as the rest of
- * /admin.
+ * or a public page -- it reads the whole prospect pipeline and puts load on
+ * two volunteer-run services, so it stays behind the same check as the rest
+ * of /admin.
  */
 
 /** A search hit, plus whether it is already in the pipeline. */
 export type Found = Business & { inPipeline: boolean };
 
 export type SearchState =
-  | { ok: true; where: string; businesses: Found[]; capped: boolean }
+  | { ok: true; where: string; businesses: Found[]; total: number }
   | { ok: false; error: string };
 
 /**
  * Which businesses do we already have?
  *
- * Matched on the Google Maps link first, which is stable for a place even if
- * it is renamed, and on an exact name as a fallback for prospects typed in by
- * hand before this tool existed. Neither is perfect -- a hand-typed "joes
- * plumbing" will not match Google's "Joe's Plumbing" -- so this is a courtesy
- * that stops the obvious duplicates, not a uniqueness guarantee.
+ * Matched on the Google Maps link first -- it is built from the name and
+ * address, so it is stable across searches -- and on an exact name as a
+ * fallback for prospects typed in by hand before this tool existed. Neither is
+ * perfect, so this is a courtesy that stops the obvious duplicates rather than
+ * a uniqueness guarantee.
  */
 async function alreadyHave(businesses: Business[]) {
   const urls = businesses.map((b) => b.mapsUrl).filter((u): u is string => Boolean(u));
@@ -51,16 +51,14 @@ async function alreadyHave(businesses: Business[]) {
 
 const searchSchema = z.object({
   where: z.string().trim().min(1, "Type a town, city or ZIP code to search around.").max(120),
-  radiusMiles: z.coerce.number().min(0.5).max(30),
-  types: z.array(z.string()).max(20),
-  rankBy: z.enum(["POPULARITY", "DISTANCE"]),
+  radiusMiles: z.coerce.number().min(0.5).max(25),
+  types: z.array(z.string()).max(60),
 });
 
 export async function searchBusinesses(input: {
   where: string;
   radiusMiles: number;
   types: string[];
-  rankBy: "POPULARITY" | "DISTANCE";
 }): Promise<SearchState> {
   await requireAdmin();
 
@@ -81,7 +79,6 @@ export async function searchBusinesses(input: {
     point: located.point,
     radiusMiles: parsed.data.radiusMiles,
     types,
-    rankBy: parsed.data.rankBy,
   });
   if (!found.ok) return { ok: false, error: found.error };
 
@@ -90,7 +87,7 @@ export async function searchBusinesses(input: {
   return {
     ok: true,
     where: located.point.label,
-    capped: found.capped,
+    total: found.total,
     businesses: found.businesses.map((b) => ({ ...b, inPipeline: have(b) })),
   };
 }
@@ -114,8 +111,7 @@ const pickSchema = z.object({
   phone: z.string().trim().max(30).nullable(),
   website: z.string().trim().max(300).nullable(),
   mapsUrl: z.string().trim().max(500).nullable(),
-  rating: z.number().nullable(),
-  reviews: z.number().int().nullable(),
+  isChain: z.boolean(),
   miles: z.number().nullable(),
 });
 
@@ -124,19 +120,21 @@ export type AddResult = { added: number; skipped: number; error?: string };
 /** Everything worth knowing before the first phone call, in the notes field. */
 function notesFor(b: z.infer<typeof pickSchema>, where: string): string {
   const lines = [
-    b.website ? `Current site: ${b.website}` : "No website listed on Google.",
-    b.rating != null && b.reviews
-      ? `${b.rating.toFixed(1)} stars from ${b.reviews} Google review${b.reviews === 1 ? "" : "s"}.`
-      : "No Google reviews yet.",
+    b.website
+      ? `Website on record: ${b.website}`
+      : "No website on record — worth confirming on Google Maps before calling.",
   ];
-  if (b.miles != null) lines.push(`About ${b.miles} mi from ${where}.`);
+  if (!b.phone) lines.push("No phone number recorded — look it up before calling.");
+  if (b.isChain) lines.push("Tagged as a chain or franchise.");
+  if (b.miles != null && where) lines.push(`About ${b.miles} mi from ${where}.`);
+  lines.push("Found via OpenStreetMap.");
   return lines.join("\n");
 }
 
 export async function addProspects(picks: unknown[], where: string): Promise<AddResult> {
   const admin = await requireAdmin();
 
-  const parsed = z.array(pickSchema).max(20).safeParse(picks);
+  const parsed = z.array(pickSchema).max(100).safeParse(picks);
   if (!parsed.success) return { added: 0, skipped: 0, error: "That selection didn't come through cleanly." };
   if (parsed.data.length === 0) return { added: 0, skipped: 0, error: "Tick at least one business to add." };
 
@@ -167,9 +165,9 @@ export async function addProspects(picks: unknown[], where: string): Promise<Add
         zip: b.zip,
         currentWebsite: b.website,
         gmbUrl: b.mapsUrl,
-        notes: notesFor(b, origin || "the search centre"),
+        notes: notesFor(b, origin),
         status: ProspectStatus.NEW,
-        source: `Google Maps — near ${origin}`.slice(0, 150),
+        source: `OpenStreetMap — near ${origin}`.slice(0, 150),
       },
     });
 
@@ -178,8 +176,8 @@ export async function addProspects(picks: unknown[], where: string): Promise<Add
         prospectId: prospect.id,
         type: "SYSTEM",
         description: b.website
-          ? "Found on Google Maps. Has a website already."
-          : "Found on Google Maps with no website listed.",
+          ? "Found on OpenStreetMap. Has a website on record."
+          : "Found on OpenStreetMap with no website on record.",
         createdById: admin.id,
       },
     });
