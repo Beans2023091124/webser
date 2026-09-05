@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { Check, X, AlertTriangle, ExternalLink, Tags } from "lucide-react";
+import { Check, X, AlertTriangle, ExternalLink, Tags, Wallet } from "lucide-react";
 import { Topbar } from "@/components/admin/topbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input, Label } from "@/components/ui/input";
+import { Input, Label, Textarea } from "@/components/ui/input";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { getSettings, integrationStatus, devPaymentsWarning } from "@/lib/settings";
+import { stripeStatus } from "@/lib/stripe";
 import { updateSettings } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +16,7 @@ export default async function SettingsPage() {
   const integrations = integrationStatus();
   const devPaymentsOn = devPaymentsWarning();
   const missing = integrations.filter((i) => !i.ready).length;
+  const stripe = stripeStatus();
 
   return (
     <>
@@ -89,6 +91,70 @@ export default async function SettingsPage() {
                       />
                     </div>
                   </div>
+                  <div className="flex justify-end">
+                    <SubmitButton />
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Wallet className="h-4 w-4 text-slate-500" />
+                  Getting paid without Stripe
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="mb-4 text-sm leading-relaxed text-slate-500">
+                  {stripe.configured
+                    ? "Stripe is connected, so clients pay by card and these are only a fallback. They show in the portal if the card button is ever switched off."
+                    : "There's no Stripe key set, so the portal can't take a card. Fill either of these in and clients see them on their payment step instead of a dead end. Record the money on the client's page once it arrives."}
+                </p>
+                <form action={updateSettings} className="space-y-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                      <Label htmlFor="venmoHandle">Venmo username</Label>
+                      <Input
+                        id="venmoHandle"
+                        name="venmoHandle"
+                        defaultValue={settings.venmoHandle ?? ""}
+                        placeholder="ryder-borschuk"
+                        autoComplete="off"
+                      />
+                      <p className="mt-1.5 text-xs text-slate-500">
+                        Without the @. Becomes a link to your Venmo page.
+                      </p>
+                    </div>
+                    <div>
+                      <Label htmlFor="cashAppTag">Cash App $Cashtag</Label>
+                      <Input
+                        id="cashAppTag"
+                        name="cashAppTag"
+                        defaultValue={settings.cashAppTag ?? ""}
+                        placeholder="ryderb"
+                        autoComplete="off"
+                      />
+                      <p className="mt-1.5 text-xs text-slate-500">
+                        Without the $. Becomes a link to your Cash App page.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="paymentNote">Anything else they should know</Label>
+                    <Textarea
+                      id="paymentNote"
+                      name="paymentNote"
+                      rows={3}
+                      defaultValue={settings.paymentNote ?? ""}
+                      placeholder="Put your business name in the note so I know who it's from. Zelle and checks work too — just ask."
+                    />
+                    <p className="mt-1.5 text-xs text-slate-500">
+                      Shown under the buttons on the client&apos;s payment step.
+                    </p>
+                  </div>
+
                   <div className="flex justify-end">
                     <SubmitButton />
                   </div>

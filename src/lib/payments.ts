@@ -1,6 +1,10 @@
 import { ProjectStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
+// Re-exported so payment code has one import, but defined in lib/project so
+// client components can read the list without pulling Prisma into the bundle.
+export { MANUAL_METHODS, type ManualMethod } from "@/lib/project";
+
 /**
  * Payment settlement.
  *
@@ -24,7 +28,14 @@ export function devPaymentsEnabled(): boolean {
 
 export async function settleBuildPayment(
   projectId: string,
-  opts: { invoiceId?: string | null; paymentIntentId?: string | null; customerId?: string | null } = {}
+  opts: {
+    invoiceId?: string | null;
+    paymentIntentId?: string | null;
+    customerId?: string | null;
+    /** Set only for payments taken outside Stripe. */
+    method?: string | null;
+    reference?: string | null;
+  } = {}
 ) {
   const project = await prisma.project.findUnique({
     where: { id: projectId },
@@ -41,6 +52,8 @@ export async function settleBuildPayment(
         status: "PAID",
         paidAt: new Date(),
         stripePaymentIntentId: opts.paymentIntentId ?? null,
+        method: opts.method ?? null,
+        reference: opts.reference ?? null,
       },
     });
   }

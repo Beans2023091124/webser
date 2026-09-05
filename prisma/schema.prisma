@@ -358,6 +358,12 @@ model Invoice {
   type                  InvoiceType    @default(FULL)
   status                InvoiceStatus  @default(DRAFT)
 
+  // Set when a payment was taken outside Stripe -- Venmo, Cash App, cash.
+  // `method` is how they paid, `reference` is whatever proves it: their
+  // handle, a confirmation code, a check number.
+  method                String?
+  reference             String?
+
   dueDate               DateTime?
   paidAt                DateTime?
   createdAt             DateTime       @default(now())
@@ -512,5 +518,12 @@ model Settings {
   businessName String   @default("Webser")
   contactPhone String?
   contactEmail String?
+
+  // How clients pay when Stripe isn't connected. Shown in the portal in place
+  // of the card button, so the payment step is never a dead end.
+  venmoHandle  String?
+  cashAppTag   String?
+  paymentNote  String?  @db.Text
+
   updatedAt    DateTime @updatedAt
 }

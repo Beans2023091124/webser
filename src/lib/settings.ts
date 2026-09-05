@@ -90,3 +90,34 @@ export function integrationStatus() {
 export function devPaymentsWarning(): boolean {
   return process.env.ENABLE_DEV_PAYMENTS === "true" && process.env.NODE_ENV === "production";
 }
+
+/**
+ * How a client pays when Stripe isn't connected.
+ *
+ * The portal shows this in place of the card button. Without it the payment
+ * step is a dead end -- the button returns "payments aren't set up", which
+ * tells the client nothing they can act on and leaves the sale sitting there.
+ *
+ * Handles are stored however the owner typed them and normalised here, since
+ * people write their Venmo as "@name" or "name" interchangeably and the link
+ * only works one way.
+ */
+export async function manualPaymentInfo() {
+  const s = await getSettings();
+
+  const venmo = s.venmoHandle?.trim().replace(/^@/, "") || null;
+  const cashApp = s.cashAppTag?.trim().replace(/^\$/, "") || null;
+  const note = s.paymentNote?.trim() || null;
+
+  return {
+    venmo,
+    cashApp,
+    note,
+    venmoUrl: venmo ? `https://venmo.com/u/${encodeURIComponent(venmo)}` : null,
+    cashAppUrl: cashApp ? `https://cash.app/$${encodeURIComponent(cashApp)}` : null,
+    /** Whether there is anything worth showing a client. */
+    any: Boolean(venmo || cashApp || note),
+  };
+}
+
+export type ManualPaymentInfo = Awaited<ReturnType<typeof manualPaymentInfo>>;

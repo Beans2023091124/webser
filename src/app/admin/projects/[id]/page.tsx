@@ -40,7 +40,17 @@ import {
   REVISION_STATUS_LABELS,
   REVISION_STATUS_COLORS,
 } from "@/lib/project";
-import { updateProjectDetails, addRevisionAsAdmin, deleteProject, releaseDomain } from "../actions";
+import {
+  updateProjectDetails,
+  addRevisionAsAdmin,
+  deleteProject,
+  releaseDomain,
+  recordManualPayment,
+  recordManualMaintenance,
+  reverseManualPayment,
+} from "../actions";
+import { ManualPaymentForm, ReversePaymentButton } from "@/components/projects/manual-payment";
+import { stripeStatus } from "@/lib/stripe";
 
 export default async function ProjectDetailPage({ params }: { params: { id: string } }) {
   const project = await prisma.project.findUnique({
@@ -67,6 +77,11 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
   const paid = project.invoices
     .filter((i) => i.status === "PAID")
     .reduce((sum, i) => sum + Number(i.amount), 0);
+
+  const buildInvoice = project.invoices.find((i) => i.type === "FULL");
+  const buildPaid = buildInvoice?.status === "PAID";
+  const planActive = project.maintenance?.status === "ACTIVE";
+  const stripe = stripeStatus();
   const openRevisions = project.revisions.filter((r) => r.status !== "DONE");
 
   return (
@@ -366,11 +381,15 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
                     key={i.id}
                     className="flex items-center justify-between gap-2 rounded-md border border-slate-800 bg-slate-950/50 px-3 py-2"
                   >
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-sm text-slate-200">{INVOICE_TYPE_LABELS[i.type]}</p>
                       <p className="text-xs text-slate-500">
                         {i.paidAt ? formatDate(i.paidAt) : formatDate(i.createdAt)}
+                        {i.method ? ` · ${i.method}` : ""}
                       </p>
+                      {i.reference && (
+                        <p className="truncate text-xs text-slate-600">{i.reference}</p>
+                      )}
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-medium text-slate-100">
@@ -379,6 +398,13 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
                       <Badge className={`${INVOICE_STATUS_COLORS[i.status]} mt-0.5`}>
                         {INVOICE_STATUS_LABELS[i.status]}
                       </Badge>
+                      {i.method && (
+                        <div className="mt-1">
+                          <ReversePaymentButton
+                            action={reverseManualPayment.bind(null, project.id, i.id)}
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -393,6 +419,42 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
                     </p>
                   </div>
                 )}
+
+                {/* Taking payment by hand.
+                    Grouped under a divider so it reads as a separate job from
+                    the record above it: that is what has happened, this is you
+                    telling the app something happened elsewhere. */}
+                <div className="space-y-2 border-t border-slate-800 pt-3">
+                  {!stripe.configured && (
+                    <p className="text-xs leading-relaxed text-slate-500">
+                      Card payments are off — there&apos;s no Stripe key set, so the client&apos;s
+                      portal shows them how to pay you directly instead. Record it here once the
+                      money lands.
+                    </p>
+                  )}
+
+                  {!buildPaid && (
+                    <ManualPaymentForm
+                      action={recordManualPayment.bind(null, project.id)}
+                      defaultAmount={Number(project.price)}
+                      label="Record a payment"
+                      hint="Marks the build fee paid and moves this project on to the next stage, exactly as a card payment would."
+                    />
+                  )}
+
+                  {buildPaid && project.monthlyPrice && (
+                    <ManualPaymentForm
+                      action={recordManualMaintenance.bind(null, project.id)}
+                      defaultAmount={Number(project.monthlyPrice)}
+                      label={planActive ? "Record a monthly payment" : "Start the monthly plan"}
+                      hint={
+                        planActive
+                          ? "Logs one more month and pushes the next due date out by a month. Nothing charges automatically — this is your reminder to ask again."
+                          : "Activates the monthly plan and logs the first month. Nothing charges automatically without Stripe."
+                      }
+                    />
+                  )}
+                </div>
               </CardContent>
             </Card>
 

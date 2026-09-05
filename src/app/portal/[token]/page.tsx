@@ -5,10 +5,13 @@ import {
   Sparkles,
   Clock,
   ShieldCheck,
+  Wallet,
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { devPaymentsEnabled } from "@/lib/payments";
+import { stripeStatus } from "@/lib/stripe";
+import { manualPaymentInfo } from "@/lib/settings";
 import { requiredRecords, registrarLinks } from "@/lib/domain";
 import { publishedSiteUrl } from "@/lib/host";
 import { DomainSetup } from "@/components/portal/domain-setup";
@@ -79,6 +82,11 @@ export default async function PortalPage({
   const currentIndex = pipelineIndex(project.status);
   const buildInvoice = project.invoices.find((i) => i.type === "FULL");
   const isPaid = buildInvoice?.status === "PAID";
+
+  // How this client can actually hand over money. With Stripe connected that
+  // is the card button; without it, whatever the owner has set in Settings.
+  const stripe = stripeStatus();
+  const payDirect = stripe.configured ? null : await manualPaymentInfo();
   const openRevisions = project.revisions.filter((r) => r.status !== "DONE");
   const canReview = project.status === "FINAL_REVIEW" || project.status === "REVISION_REQUESTED";
   const askForChanges = revisionPrompt(project.status);
@@ -260,11 +268,62 @@ export default async function PortalPage({
               )}
             </div>
             <div className="mt-5">
-              <PayButton token={params.token} kind="build" label="Pay and get started" />
-              <p className="mt-3 flex items-center gap-1.5 text-xs text-slate-500">
-                <ShieldCheck className="h-3.5 w-3.5" />
-                Secure checkout by Stripe. We never see or store your card details.
-              </p>
+              {stripe.configured ? (
+                <>
+                  <PayButton token={params.token} kind="build" label="Pay and get started" />
+                  <p className="mt-3 flex items-center gap-1.5 text-xs text-slate-500">
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                    Secure checkout by Stripe. We never see or store your card details.
+                  </p>
+                </>
+              ) : payDirect?.any ? (
+                <div>
+                  <h3 className="flex items-center gap-2 text-[15px] font-semibold text-slate-100">
+                    <Wallet className="h-4 w-4" style={{ color: ACCENT }} />
+                    How to pay
+                  </h3>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {payDirect.venmoUrl && (
+                      <a
+                        href={payDirect.venmoUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-100 transition-colors hover:bg-slate-800"
+                      >
+                        Venmo
+                        <span className="font-mono text-xs text-slate-400">@{payDirect.venmo}</span>
+                        <ExternalLink className="h-3.5 w-3.5 text-slate-500" />
+                      </a>
+                    )}
+                    {payDirect.cashAppUrl && (
+                      <a
+                        href={payDirect.cashAppUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-100 transition-colors hover:bg-slate-800"
+                      >
+                        Cash App
+                        <span className="font-mono text-xs text-slate-400">${payDirect.cashApp}</span>
+                        <ExternalLink className="h-3.5 w-3.5 text-slate-500" />
+                      </a>
+                    )}
+                  </div>
+                  {payDirect.note && (
+                    <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-slate-400">
+                      {payDirect.note}
+                    </p>
+                  )}
+                  <p className="mt-3 text-xs leading-relaxed text-slate-500">
+                    Send {formatCurrency(Number(project.price))} and we&apos;ll confirm it here —
+                    usually within a few hours. Nothing on this page changes until we do, so there
+                    is nothing else for you to click.
+                  </p>
+                </div>
+              ) : (
+                <p className="text-sm leading-relaxed text-slate-400">
+                  Get in touch and we&apos;ll send you payment details directly.
+                </p>
+              )}
             </div>
           </Card>
         )}

@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { publishedSiteUrl } from "@/lib/host";
 import { requireAdmin } from "@/lib/require-admin";
 import { notifyProjectStatus } from "@/lib/email";
+import { settleBuildPayment, activateMaintenance, MANUAL_METHODS } from "@/lib/payments";
 
 /**
  * Turns a won prospect into a client project.
@@ -218,4 +219,163 @@ export async function deleteProject(projectId: string) {
   await prisma.project.delete({ where: { id: projectId } });
   revalidatePath("/admin/projects");
   redirect("/admin/projects");
+}
+
+// ---------------------------------------------------------------------------
+// Payments taken outside Stripe
+// ---------------------------------------------------------------------------
+
+/**
+ * Recording a Venmo, Cash App or cash payment by hand.
+ *
+ * These run the same settlement functions as the Stripe webhook, so a project
+ * paid by hand advances through the pipeline exactly like a card payment --
+ * the money arriving somewhere else is the only difference, and the rest of
+ * the app never has to know about it.
+ *
+ * Admin-only, and deliberately not reachable from the portal. The developer
+ * shortcut in the portal is the thing this replaces for real use: that one is
+ * env-gated and off in production, because anyone holding a portal link could
+ * otherwise mark their own project paid.
+ */
+
+/** Keeps free text out of the method column. Anything unrecognised is "Other". */
+function readMethod(formData: FormData): string {
+  const raw = String(formData.get("method") ?? "").trim();
+  return (MANUAL_METHODS as readonly string[]).includes(raw) ? raw : "Other";
+}
+
+function readReference(formData: FormData): string | null {
+  const raw = String(formData.get("reference") ?? "").trim();
+  return raw ? raw.slice(0, 200) : null;
+}
+
+/**
+ * Reads the amount actually received, falling back to what was asked for.
+ *
+ * A hand-taken payment is not always the invoiced figure -- a haggled price, a
+ * partial payment, a rounded-up tip -- and the Payments card totals what was
+ * received, so recording the real number keeps that total honest.
+ */
+function readAmount(formData: FormData, fallback: number): number {
+  const raw = Number(String(formData.get("amount") ?? "").trim());
+  if (!Number.isFinite(raw) || raw <= 0) return fallback;
+  return Math.min(raw, 1_000_000);
+}
+
+/** Marks the one-time build fee paid, by whatever means it actually arrived. */
+export async function recordManualPayment(projectId: string, formData: FormData) {
+  await requireAdmin();
+
+  const project = await prisma.project.findUniqueOrThrow({
+    where: { id: projectId },
+    include: { invoices: { where: { type: "FULL" }, orderBy: { createdAt: "desc" }, take: 1 } },
+  });
+
+  let invoice = project.invoices[0];
+  if (invoice?.status === "PAID") return; // Already settled; nothing to do.
+
+  const amount = readAmount(formData, Number(project.price));
+
+  // Every project gets a FULL invoice when it is created, but a project
+  // restored from an older backup might not have one -- and a payment with no
+  // invoice row would vanish from the takings.
+  if (!invoice) {
+    invoice = await prisma.invoice.create({
+      data: { projectId, amount, type: "FULL", status: "SENT" },
+    });
+  } else {
+    await prisma.invoice.update({ where: { id: invoice.id }, data: { amount } });
+  }
+
+  await settleBuildPayment(projectId, {
+    invoiceId: invoice.id,
+    method: readMethod(formData),
+    reference: readReference(formData),
+  });
+
+  revalidatePath(`/admin/projects/${projectId}`);
+  revalidatePath("/admin/projects");
+  revalidatePath(`/portal/${project.portalToken}`);
+  revalidatePath("/admin/dashboard");
+}
+
+/**
+ * Starts or renews the monthly plan against a payment taken by hand.
+ *
+ * Without Stripe there is no subscription to renew itself, so this records one
+ * month and sets the next billing date a month out. It is a reminder to go and
+ * ask for the next one, not an automatic charge.
+ */
+export async function recordManualMaintenance(projectId: string, formData: FormData) {
+  await requireAdmin();
+
+  const project = await prisma.project.findUniqueOrThrow({
+    where: { id: projectId },
+    include: { maintenance: true },
+  });
+  if (!project.monthlyPrice) return;
+
+  const amount = readAmount(formData, Number(project.monthlyPrice));
+
+  // Renewals count forward from the date already on the plan where there is
+  // one, so paying early doesn't quietly cost the client part of a month.
+  const from =
+    project.maintenance?.nextBillingDate && project.maintenance.nextBillingDate > new Date()
+      ? new Date(project.maintenance.nextBillingDate)
+      : new Date();
+  const next = new Date(from);
+  next.setMonth(next.getMonth() + 1);
+
+  await activateMaintenance(projectId, { nextBillingDate: next });
+
+  await prisma.invoice.create({
+    data: {
+      projectId,
+      amount,
+      type: "MAINTENANCE",
+      status: "PAID",
+      paidAt: new Date(),
+      method: readMethod(formData),
+      reference: readReference(formData),
+    },
+  });
+
+  revalidatePath(`/admin/projects/${projectId}`);
+  revalidatePath("/admin/projects");
+  revalidatePath(`/portal/${project.portalToken}`);
+  revalidatePath("/admin/dashboard");
+}
+
+/**
+ * Undoes a payment that was recorded by hand.
+ *
+ * Refuses anything without a `method`, which is the marker this app puts on
+ * hand-recorded payments -- so a real Stripe payment can never be unpicked
+ * here, where the books would then disagree with Stripe's.
+ *
+ * The project's stage is left alone. Recording the payment may have moved it
+ * on, work may have happened since, and dragging a half-built project back to
+ * "payment pending" would lose more than it fixed.
+ */
+export async function reverseManualPayment(projectId: string, invoiceId: string) {
+  await requireAdmin();
+
+  const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
+  if (!invoice || invoice.projectId !== projectId || !invoice.method) return;
+
+  if (invoice.type === "MAINTENANCE") {
+    await prisma.invoice.delete({ where: { id: invoiceId } });
+  } else {
+    await prisma.invoice.update({
+      where: { id: invoiceId },
+      data: { status: "SENT", paidAt: null, method: null, reference: null },
+    });
+  }
+
+  const project = await prisma.project.findUnique({ where: { id: projectId } });
+  revalidatePath(`/admin/projects/${projectId}`);
+  revalidatePath("/admin/projects");
+  if (project) revalidatePath(`/portal/${project.portalToken}`);
+  revalidatePath("/admin/dashboard");
 }

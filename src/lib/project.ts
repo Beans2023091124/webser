@@ -189,3 +189,25 @@ export function revisionPrompt(
       };
   }
 }
+
+/**
+ * Ways a payment can arrive that aren't a card.
+ *
+ * Free text would let the same method be spelled three ways across a year of
+ * invoices, which makes the payment record useless for reconciling against a
+ * Venmo statement. "Other" plus the reference field covers anything unusual.
+ *
+ * Lives here rather than in lib/payments so the admin form can read it without
+ * importing Prisma into the browser bundle.
+ */
+export const MANUAL_METHODS = [
+  "Venmo",
+  "Cash App",
+  "Zelle",
+  "Cash",
+  "Check",
+  "Bank transfer",
+  "Other",
+] as const;
+
+export type ManualMethod = (typeof MANUAL_METHODS)[number];
